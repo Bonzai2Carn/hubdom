@@ -69,8 +69,8 @@ class EventService {
    */
   public async getAllEvents(): Promise<Event[]> {
     try {
-      const allEvent = await API.get<Event[]>('/events');
-      return allEvent;
+      const response = await API.get<Event[]>('/events');
+      return response;
     } catch (error) {
       this.handleError(error as ApiError, 'Failed to fetch events');
       return [];
@@ -173,8 +173,8 @@ class EventService {
    */
   public async joinEvent(id: string): Promise<Event> {
     try {
-      const join = await API.post<Event>(`/events/${id}/join`);
-      return join;
+      const response = await API.post<Event>(`/events/${id}/join`);
+      return response;
     } catch (error) {
       this.handleError(error as ApiError, 'Failed to join event');
       throw error;

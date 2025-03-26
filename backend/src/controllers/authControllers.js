@@ -13,9 +13,14 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
  */
 const generateTokens = (userId) => {
   const token = jwt.sign(
-    { id: userId }, 
+    { id: userId,
+      iat: Math.floor(Date.now() / 1000)
+     }, 
     process.env.JWT_SECRET || 'fallback_secret', 
-    { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
+    { 
+      expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+      algorithm: 'HS256' 
+    }
   );
   
   const refreshToken = jwt.sign(
@@ -81,7 +86,7 @@ const register = async (req, res) => {
     }
 
     // Hash password
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create new user
@@ -470,8 +475,12 @@ const refreshToken = async (req, res) => {
     }
 
     try {
-      // Verify refresh token
-      const decoded = jwt.verify(refreshTokenValue, process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret');
+      // Verify token with explicit algorithm
+      const decoded = jwt.verify(
+        token, 
+        process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret',
+        { algorithms: ['HS256'] }
+      );
       
       // Generate new tokens
       const { token, refreshToken: newRefreshToken } = generateTokens(decoded.id);
@@ -513,7 +522,11 @@ const getMe = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: formatUserResponse(user),
+      data: {
+        user: formatUserResponse(user),
+        tokens: {token, refreshToken}
+      },
+      message: "Login successful"
     });
   } catch (error) {
     console.error("Get user error:", error);
@@ -523,14 +536,36 @@ const getMe = async (req, res) => {
     });
   }
 };
+/**
+ * Logout user
+ * @route POST /api/v1/auth/logout
+ * @access Public
+ */
+const logout = async (req, res) => {
+  try {
+    // In a more comprehensive implementation, you would blacklist the token
+    // or remove it from a tokens table in the database
+    
+    res.status(200).json({
+      success: true,
+      data: null,
+      message: "Logged out successfully"
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Server error during logout",
+    });
+  }
+};
 
+// Make sure to include logout in the exports
 module.exports = {
   register,
   login,
-  googleAuth,
-  facebookAuth,
-  twitterAuth,
   socialAuth,
   refreshToken,
-  getMe,
+  logout,
+  getMe,  // Add this line to your exports
 };

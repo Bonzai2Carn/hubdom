@@ -2,7 +2,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import authService from "../../services/authService";
-import { handleApiError } from "../../utils/apiUtils";
 import { User } from "../../types/interfaces";
 
 // Constants for storage keys

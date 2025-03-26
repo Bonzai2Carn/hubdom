@@ -30,7 +30,7 @@ const router = express.Router();
 const userController = require('../../../controllers/userController');
 const { protect } = require('../../../middleware/authMiddleware');
 
-router.post("/location", protect, userController.updateUserLocation);
-router.post("/location/settings", protect, userController.updateLocationSettings);
+router.post("/location", /*protect,*/ userController.updateUserLocation);
+router.post("/location/settings", /*protect,*/ userController.updateLocationSettings);
 
 module.exports = router;

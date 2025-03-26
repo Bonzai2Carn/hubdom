@@ -80,7 +80,17 @@ class ApiService {
     
     // Set up response interceptor
     this.client.interceptors.response.use(
-      this.handleResponse,
+      (response) => {
+        // Ensure all responses follow the ApiResponse format
+        if (response.data && !response.data.hasOwnProperty('success')) {
+          // If response doesn't follow our format, standardize it
+          response.data = {
+            success: true,
+            data: response.data,
+          };
+        }
+        return response;
+      },
       this.handleResponseError
     );
   }
@@ -97,7 +107,7 @@ class ApiService {
       return 'http://localhost:3000/api/v1';
     } else {
       // For web or other platforms
-      return 'http:// 192.168.1.3:3000/api/v1'; //'/api/v1';
+      return 'http://localhost:3000/api/v1'; // Fixed URL for web
     }
   }
   
@@ -132,7 +142,7 @@ class ApiService {
         { refreshToken }
       );
       
-      if (response.data.success && response.data.tokens.token) {
+      if (response.data.success && response.data.tokens.token) { //have to update this part to standardize
         const { token, refreshToken: newRefreshToken } = response.data.tokens;
         
         // Store new tokens
@@ -238,11 +248,19 @@ class ApiService {
           this.notifySubscribers(newToken);
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return this.client(originalRequest);
+        } else {
+          // If refresh failed, need to re-authenticate
+          await this.handleLogout();
+          throw new Error('Session expired. Please login again.');
         }
+      } catch (refreshError) {
+        // Handle refresh token error properly
+        await this.handleLogout();
+        throw new Error('Authentication failed. Please login again.');
       } finally {
         this.isRefreshing = false;
       }
-    }
+    } //might need to remove this part of the code --finally
 
     
     // Standardize error format for easier handling

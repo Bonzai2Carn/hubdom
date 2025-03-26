@@ -1,16 +1,17 @@
 // src/utils/errorUtils.ts
-import { Alert, Platform } from 'react-native';
-import { ApiError } from '../services/api';
+import { AxiosError } from 'axios';
+import { SerializedError } from '@reduxjs/toolkit';
 
 /**
- * Error with additional metadata for better handling
+ * Standard error response format for API errors
  */
-export interface EnhancedError extends Error {
+export interface ApiError {
+  message: string;
+  status?: number;
   code?: string;
+  details?: Record<string, string[]>;
   isNetworkError?: boolean;
   isServerError?: boolean;
-  isInputError?: boolean;
-  isAuthError?: boolean;
   originalError?: any;
 }
 
@@ -40,59 +41,100 @@ const defaultOptions: ErrorHandlingOptions = {
 };
 
 /**
+ * Extract error message from various error types
+ */
+export function getErrorMessage(error: unknown): string {
+  // Handle Axios errors
+  if (isAxiosError(error)) {
+    return (
+      (error.response?.data as any)?.error ||
+      (error.response?.data as any)?.message ||
+      error.message ||
+      'An error occurred with the request'
+    );
+  }
+
+  // Handle serialized RTK errors
+  if (isRtkError(error)) {
+    return error.message || 'An unexpected error occurred';
+  }
+
+  // Handle standard Error objects
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  // Handle string errors
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  // Handle API error objects
+  if (isApiErrorObject(error)) {
+    return error.message;
+  }
+
+  // Default case for unknown error types
+  return 'An unknown error occurred';
+}
+
+/**
  * Handle API errors with standardized approach
  */
-export const handleApiError = (
-  error: any,
+export function handleApiError(
+  error: unknown,
   options: ErrorHandlingOptions = {}
-): EnhancedError => {
+): ApiError {
   const opts = { ...defaultOptions, ...options };
-  let enhancedError: EnhancedError;
+  let apiError: ApiError;
   
-  // Convert API error to standardized error format
-  if (isApiError(error)) {
-    enhancedError = {
-      name: 'ApiError',
-      message: error.message || opts.fallbackMessage!,
-      code: error.code,
-      isNetworkError: error.isNetworkError,
-      isServerError: error.isServerError,
-      isAuthError: error.status === 401 || error.status === 403,
-      isInputError: error.status === 400 || error.status === 422,
+  // Convert different error types to standardized ApiError format
+  if (isAxiosError(error)) {
+    apiError = {
+      message: getErrorMessage(error),
+      status: error.response?.status,
+      code: (error.response?.data as any)?.code,
+      details: (error.response?.data as any)?.details,
+      isNetworkError: !error.response,
+      isServerError: error.response?.status ? error.response.status >= 500 : false,
       originalError: error,
     };
+  } else if (isApiErrorObject(error)) {
+    apiError = error as ApiError;
   } else if (error instanceof Error) {
-    enhancedError = {
-      ...error,
-      isNetworkError: error.message?.includes('network') || error.message?.includes('connection'),
+    apiError = {
+      message: error.message,
+      isNetworkError: error.message.includes('network') || error.message.includes('connection'),
       originalError: error,
     };
   } else {
-    enhancedError = {
-      name: 'UnknownError',
-      message: opts.fallbackMessage!,
+    apiError = {
+      message: opts.fallbackMessage || 'Unknown error',
       originalError: error,
     };
   }
   
   // Log error to console if enabled
   if (opts.logError) {
-    console.error('[ERROR]', enhancedError);
+    console.error('[ERROR]', apiError);
   }
   
   // Show alert if enabled
   if (opts.showAlert) {
-    showErrorAlert(enhancedError, opts.title!);
+    showErrorAlert(apiError.message, opts.title!);
   }
   
   // Handle specific error types
-  if (enhancedError.isAuthError && opts.onAuthError) {
+  const isAuthError = apiError.status === 401 || apiError.status === 403;
+  const isInputError = apiError.status === 400 || apiError.status === 422;
+  
+  if (isAuthError && opts.onAuthError) {
     opts.onAuthError();
-  } else if (enhancedError.isNetworkError && opts.onNetworkError) {
+  } else if (apiError.isNetworkError && opts.onNetworkError) {
     opts.onNetworkError();
-  } else if (enhancedError.isServerError && opts.onServerError) {
+  } else if (apiError.isServerError && opts.onServerError) {
     opts.onServerError();
-  } else if (enhancedError.isInputError && opts.onInputError) {
+  } else if (isInputError && opts.onInputError) {
     opts.onInputError();
   }
   
@@ -101,8 +143,25 @@ export const handleApiError = (
     opts.onFinally();
   }
   
-  return enhancedError;
-};
+  return apiError;
+}
+
+/**
+ * Helper for consistent error messages by status code
+ */
+export function getDefaultErrorMessage(status: number): string {
+  const messages: Record<number, string> = {
+    400: 'Bad request. Please check your input.',
+    401: 'Not authenticated. Please login again.',
+    403: 'You do not have permission to perform this action.',
+    404: 'The requested resource was not found.',
+    409: 'Conflict with current state of the resource.',
+    429: 'Too many requests. Please try again later.',
+    500: 'Server error. Please try again later.'
+  };
+
+  return messages[status] || 'An unexpected error occurred.';
+}
 
 /**
  * Create a safe async function wrapper that handles errors
@@ -124,38 +183,42 @@ export const createSafeFunction = <T extends (...args: any[]) => Promise<any>>(
 /**
  * Show error alert dialog with OK button
  */
-export const showErrorAlert = (error: Error | string, title: string = 'Error'): void => {
-  const message = typeof error === 'string' ? error : error.message;
-  
-  Alert.alert(
-    title,
-    message,
-    [{ text: 'OK' }],
-    { cancelable: true }
+export const showErrorAlert = (message: string, title: string = 'Error'): void => {
+  console.error(`${title}: ${message}`);
+  // Implement your alert mechanism here (e.g. Alert.alert for React Native)
+};
+
+/**
+ * Type guard for Axios errors
+ */
+function isAxiosError(error: unknown): error is AxiosError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'isAxiosError' in error &&
+    (error as AxiosError).isAxiosError === true
   );
-};
+}
 
 /**
- * Check if an error is an API error
+ * Type guard for RTK serialized errors
  */
-export const isApiError = (error: any): error is ApiError => {
-  return error && typeof error === 'object' && 
-    (error.status !== undefined || 
-    error.isNetworkError !== undefined || 
-    error.isServerError !== undefined);
-};
+function isRtkError(error: unknown): error is SerializedError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    'name' in error
+  );
+}
 
 /**
- * Format error message for display
+ * Type guard for API error objects
  */
-export const formatErrorMessage = (error: any): string => {
-  if (isApiError(error)) {
-    return error.message;
-  } else if (error instanceof Error) {
-    return error.message;
-  } else if (typeof error === 'string') {
-    return error;
-  } else {
-    return 'An unexpected error occurred';
-  }
-};
+function isApiErrorObject(error: unknown): error is ApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error
+  );
+}

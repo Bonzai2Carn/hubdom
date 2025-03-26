@@ -5,7 +5,10 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const mongoose = require("mongoose");
-
+// const csrf = require('csurf');
+const cookieParser = require('cookie-parser');
+const { logger, requestLogger } = require('./middleware/logger');
+// apply helmet to this later
 const app = express();
 
 // Define allowed origins
@@ -19,31 +22,52 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 // Increase the JSON body size limit
 app.use(bodyParser.json({ limit: "50mb" }));
+
 // Increase the URL-encoded payload size limit
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
-// app.use(
-//   cors({
-//     origin: allowedOrigins,
-//     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-//     allowedHeaders: ["Content-Type", "Authorization"],
-//     credentials: true,
-//   })
-// );
+// Add cookie parser middleware
+app.use (cookieParser());
+
+// // Add CSRF protection middleware
+// const csrfProtection = csrf({ 
+//   cookie: {
+//     httpOnly: true,
+//     secure: process.env.NODE_ENV === 'production',
+//     sameSite: 'strict'
+//   } 
+// });
+
+// // Generate CSRF token endpoint
+// app.get('/api/v1/security/csrf-token', csrfProtection, (req, res) => {
+//   res.json({ 
+//     success: true, 
+//     data: { csrfToken: req.csrfToken() }
+//   });
+// });
+
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
+// app.use(
+//   cors({
+//     origin: (origin, callback) => {
+//       if (!origin || allowedOrigins.includes(origin)) {
+//         callback(null, true);
+//       } else {
+//         callback(new Error("Not allowed by CORS"));
+//       }
+//     },
+//     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+//     allowedHeaders: ["Content-Type", "Authorization"],
+//     credentials: true,
+//   })
+// );
 
 // MongoDB Connection
 const MONGODB_URI =
@@ -66,6 +90,7 @@ const apiV1Routes = require("./routes/api/v1"); //add /index
 
 // Mount API routes - FIX: Use just /api/v1 instead of /api/v1/index
 app.use("/api/v1", apiV1Routes);
+// app.use('/api/v1/auth', csrfProtection, authRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -88,5 +113,8 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+//logger
+app.use(requestLogger);
 
 module.exports = app; // for testing
