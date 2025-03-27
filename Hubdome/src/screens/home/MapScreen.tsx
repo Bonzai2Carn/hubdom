@@ -33,7 +33,7 @@ import BottomNavigation from "../../components/navigations/BottomNavigation";
 import { useLocation } from "../../hooks/useLocation";
 
 // Types & Constants
-import { MapMarker, MapStyleType, MAP_STYLE_URLS } from "../../types/map";
+import { MapMarker, MapViewStyleType, MAP_STYLE_URLS } from "../../types/map";
 
 const { width, height } = Dimensions.get("window");
 
@@ -60,7 +60,7 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [isBannerVisible, setIsBannerVisible] = useState<boolean>(true);
   const [isScreenReaderEnabled, setIsScreenReaderEnabled] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('map');
-  const [mapStyle, setMapStyle] = useState<MapStyleType>('standard');
+  const [mapStyle, setMapStyle] = useState<MapViewStyleType>('standard');
 
   // Check for screen reader
   useEffect(() => {
@@ -189,18 +189,18 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   }, [navigation]);
 
   // Handler: Cycle through map styles
-  const handleMapStyleChange = useCallback(() => {
-    setMapStyle((currentStyle) => {
-      switch (currentStyle) {
-        case 'standard':
-          return 'satellite';
-        case 'satellite':
-          return 'terrain';
-        case 'terrain':
-          return 'standard';
-      }
-    });
-  }, []);
+  // const handleMapStyleChange = useCallback(() => {
+  //   setMapStyle((currentStyle) => {
+  //     switch (currentStyle) {
+  //       case 'standard':
+  //         return 'satellite';
+  //       case 'satellite':
+  //         return 'terrain';
+  //       case 'terrain':
+  //         return 'standard';
+  //     }
+  //   });
+  // }, []);
 
   // Handle event creation (adds a new marker)
   const handleEventCreated = useCallback((eventData: any) => {
@@ -279,13 +279,13 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       />
 
       {/* Map style toggle button */}
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={styles.mapStyleButton}
         onPress={handleMapStyleChange}
         accessibilityLabel="Change map style"
       >
         <MaterialIcons name="layers" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       {/* Banner (for announcements) */}
       {isBannerVisible && (
@@ -369,23 +369,23 @@ const styles = StyleSheet.create({
   mapContainer: {
     ...StyleSheet.absoluteFillObject,
   },
-  mapStyleButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 140 : 120,
-    right: 20,
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(42, 42, 54, 0.8)',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
+  // mapStyleButton: {
+  //   position: 'absolute',
+  //   top: Platform.OS === 'ios' ? 140 : 120,
+  //   right: 20,
+  //   width: 40,
+  //   height: 40,
+  //   backgroundColor: 'rgba(42, 42, 54, 0.8)',
+  //   borderRadius: 20,
+  //   justifyContent: 'center',
+  //   alignItems: 'center',
+  //   zIndex: 1,
+  //   shadowColor: '#000',
+  //   shadowOffset: { width: 0, height: 2 },
+  //   shadowOpacity: 0.3,
+  //   shadowRadius: 3,
+  //   elevation: 5,
+  // },
 });
 
 export default MapScreen;

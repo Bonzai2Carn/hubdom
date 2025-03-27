@@ -36,7 +36,7 @@ const MarkerDetailPopup: React.FC<MarkerDetailPopupProps> = ({
       style={styles.markerPopup}
       accessible={true}
       accessibilityLabel={`Event: ${marker.title}`}
-      accessibilityHint="Shows details about the selected event"
+      accessibilityHint="Shows details about the selected event" //add some more design to it
     >
       <TouchableOpacity
         style={styles.closeButton}

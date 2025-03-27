@@ -102,9 +102,12 @@ const register = async (req, res) => {
     // Generate JWT tokens
     const { token, refreshToken } = generateTokens(user._id);
 
+    const formattedUser = formatUserResponse(user);
+
+    // Send response in the format expected by the client
     const response = {
       success: true,
-      user: formatUserResponse(user),
+      user: formattedUser,
       tokens: { token, refreshToken }
     };
 
@@ -138,7 +141,7 @@ const login = async (req, res) => {
     console.log(`Looking for user with ${email ? 'email: ' + email : 'username: ' + username}`);
 
     // Find user by email or username
-    const user = await User.findOne(email ? { email } : { username });
+    const user = await User.findOne(email ? { email } : { username }).select('+password');
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -158,9 +161,12 @@ const login = async (req, res) => {
     // Generate JWT tokens
     const { token, refreshToken } = generateTokens(user._id);
 
+    const formattedUser = formatUserResponse(user);
+
+    // Send response in the format expected by the client
     const response = {
       success: true,
-      user: formatUserResponse(user),
+      user: formattedUser,
       tokens: { token, refreshToken }
     };
 
@@ -243,9 +249,11 @@ const googleAuth = async (req, res) => {
     // Generate JWT tokens
     const { token: authToken, refreshToken } = generateTokens(user._id);
 
+    const formattedUser = formatUserResponse(user);
+
     const response = {
       success: true,
-      user: formatUserResponse(user),
+      user: formattedUser,
       tokens: { token: authToken, refreshToken }
     };
 
@@ -328,9 +336,11 @@ const facebookAuth = async (req, res) => {
     // Generate JWT tokens
     const { token: authToken, refreshToken } = generateTokens(user._id);
 
+    const formattedUser = formatUserResponse(user);
+
     const authResponse = {
       success: true,
-      user: formatUserResponse(user),
+      user: formattedUser,
       tokens: { token: authToken, refreshToken }
     };
 
@@ -404,9 +414,11 @@ const twitterAuth = async (req, res) => {
     // Generate JWT tokens
     const { token: authToken, refreshToken } = generateTokens(user._id);
 
+    const formattedUser = formatUserResponse(user);
+
     const response = {
       success: true,
-      user: formatUserResponse(user),
+      user: formattedUser,
       tokens: { token: authToken, refreshToken }
     };
 
@@ -477,7 +489,7 @@ const refreshToken = async (req, res) => {
     try {
       // Verify token with explicit algorithm
       const decoded = jwt.verify(
-        token, 
+        refreshTokenValue, 
         process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret',
         { algorithms: ['HS256'] }
       );
@@ -520,13 +532,15 @@ const getMe = async (req, res) => {
       });
     }
 
+    const formattedUser = formatUserResponse(user);
+
+    // Generate new tokens to refresh session
+    const { token, refreshToken } = generateTokens(user._id);
+
     res.status(200).json({
       success: true,
-      data: {
-        user: formatUserResponse(user),
-        tokens: {token, refreshToken}
-      },
-      message: "Login successful"
+      user: formattedUser,
+      tokens: { token, refreshToken }
     });
   } catch (error) {
     console.error("Get user error:", error);
@@ -536,6 +550,7 @@ const getMe = async (req, res) => {
     });
   }
 };
+
 /**
  * Logout user
  * @route POST /api/v1/auth/logout
@@ -560,12 +575,11 @@ const logout = async (req, res) => {
   }
 };
 
-// Make sure to include logout in the exports
 module.exports = {
   register,
   login,
   socialAuth,
   refreshToken,
   logout,
-  getMe,  // Add this line to your exports
+  getMe
 };

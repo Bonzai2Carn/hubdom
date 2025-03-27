@@ -47,7 +47,6 @@ const CACHE_PREFIX = 'api_cache:';
 const AUTH_TOKEN_KEY = 'authToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
 
-
 /**
  * Enhanced API service with:
  * - Error handling
@@ -72,25 +71,15 @@ class ApiService {
       },
     });
     
-    // Set up request interceptor
+    // Set up request interceptor to add auth token
     this.client.interceptors.request.use(
       this.handleRequest,
       this.handleRequestError
     );
     
-    // Set up response interceptor
+    // Set up response interceptor for consistent format
     this.client.interceptors.response.use(
-      (response) => {
-        // Ensure all responses follow the ApiResponse format
-        if (response.data && !response.data.hasOwnProperty('success')) {
-          // If response doesn't follow our format, standardize it
-          response.data = {
-            success: true,
-            data: response.data,
-          };
-        }
-        return response;
-      },
+      this.handleResponse,
       this.handleResponseError
     );
   }
@@ -107,7 +96,7 @@ class ApiService {
       return 'http://localhost:3000/api/v1';
     } else {
       // For web or other platforms
-      return 'http://localhost:3000/api/v1'; // Fixed URL for web
+      return 'http://localhost:3000/api/v1';
     }
   }
   
@@ -137,12 +126,14 @@ class ApiService {
         throw new Error('No refresh token available');
       }
       
+      // Create a new axios instance to avoid interceptors
       const response = await axios.post(
         `${this.getBaseURL()}/auth/refresh-token`,
         { refreshToken }
       );
       
-      if (response.data.success && response.data.tokens.token) { //have to update this part to standardize
+      // Check if response is successful and has token
+      if (response.data.success && response.data.tokens && response.data.tokens.token) {
         const { token, refreshToken: newRefreshToken } = response.data.tokens;
         
         // Store new tokens
@@ -194,6 +185,15 @@ class ApiService {
    * Handle successful response
    */
   private handleResponse = (response: AxiosResponse): AxiosResponse => {
+    // Standardize response format
+    if (response.data && !response.data.hasOwnProperty('success')) {
+      // If response doesn't have success property, standardize it
+      response.data = {
+        success: true,
+        data: response.data
+      };
+    }
+    
     return response;
   };
   
@@ -226,7 +226,13 @@ class ApiService {
     }
     
     // Handle token expiration (401 Unauthorized)
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    if (error.response?.status === 401 && 
+        originalRequest && 
+        !originalRequest._retry &&
+        // Don't retry auth endpoints
+        !originalRequest.url?.includes('/auth/login') &&
+        !originalRequest.url?.includes('/auth/register')
+    ) {
       if (this.isRefreshing) {
         // Wait for token refresh and retry with new token
         return new Promise((resolve) => {
@@ -254,14 +260,13 @@ class ApiService {
           throw new Error('Session expired. Please login again.');
         }
       } catch (refreshError) {
-        // Handle refresh token error properly
+        // Handle refresh token error
         await this.handleLogout();
         throw new Error('Authentication failed. Please login again.');
       } finally {
         this.isRefreshing = false;
       }
-    } //might need to remove this part of the code --finally
-
+    }
     
     // Standardize error format for easier handling
     const errorData = error.response?.data as ErrorResponse || {};
@@ -396,10 +401,11 @@ class ApiService {
       
       // Cache the response if caching is enabled
       if (useCache) {
-        await this.saveToCache(cacheKey, response.data, cacheDuration);
+        const dataToCache = response.data.data || response.data;
+        await this.saveToCache(cacheKey, dataToCache, cacheDuration);
       }
       
-      return response.data.data;
+      return (response.data.data !== undefined ? response.data.data : response.data) as T;
     } catch (error) {
       throw error;
     }
@@ -415,7 +421,7 @@ class ApiService {
   ): Promise<T> {
     try {
       const response = await this.client.post<ApiResponse<T>>(url, data, config);
-      return response.data.data;
+      return (response.data.data !== undefined ? response.data.data : response.data) as T;
     } catch (error) {
       throw error;
     }
@@ -431,7 +437,7 @@ class ApiService {
   ): Promise<T> {
     try {
       const response = await this.client.put<ApiResponse<T>>(url, data, config);
-      return response.data.data;
+      return (response.data.data !== undefined ? response.data.data : response.data) as T;
     } catch (error) {
       throw error;
     }
@@ -446,7 +452,7 @@ class ApiService {
   ): Promise<T> {
     try {
       const response = await this.client.delete<ApiResponse<T>>(url, config);
-      return response.data.data;
+      return (response.data.data !== undefined ? response.data.data : response.data) as T;
     } catch (error) {
       throw error;
     }
@@ -467,8 +473,6 @@ class ApiService {
     }
   }
 }
-
-
 
 // Create and export singleton instance
 const API = new ApiService();

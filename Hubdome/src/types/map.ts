@@ -25,9 +25,10 @@ export interface MapMarker {
    * Map style URLs for different style options
    */
   export const MAP_STYLE_URLS: Record<MapStyleType, string> = {
-    standard: 'https://tiles.openfreemap.org/styles/liberty',
-    satellite: 'https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.png',
-    terrain: 'https://tiles.stadiamaps.com/tiles/outdoors/{z}/{x}/{y}{r}.png'
+    standard: 'https://tiles.openfreemap.org/styles/positron',
+    satellite: require('../../public/styles/polygon.json'),
+    terrain: 'https://tiles.openfreemap.org/styles/liberty'
+    
   };
   
   /**

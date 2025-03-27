@@ -27,7 +27,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({
     { name: 'map', label: 'Map', icon: 'map' },
     { name: 'discover', label: 'Discover', icon: 'explore' },
     { name: 'events', label: 'Events', icon: 'stream' },
-    { name: 'comms', label: 'Community', icon: 'nature_people' },
+    { name: 'comms', label: 'Community', icon: 'nature-people' },
     { name: 'profile', label: 'Profile', icon: 'person' }
   ];
 

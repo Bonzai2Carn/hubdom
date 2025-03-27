@@ -32,10 +32,12 @@ const protect = async (req, res, next) => {
 
     try {
       // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret', {
+        algorithms: ['HS256']
+      });
       
       // Get user from database
-      const user = await User.findById(decoded.id);
+      const user = await User.findById(decoded.id).select("-password");
 
       // If user not found
       if (!user) {

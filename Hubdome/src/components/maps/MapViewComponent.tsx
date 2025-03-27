@@ -7,7 +7,9 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 // Types
-import { MapMarker } from '../../types/map';
+// import { MapMarker } from '../../types/map';
+import { MapMarker, MapViewStyleType, MAP_STYLE_URLS } from "../../types/map";
+const [mapViewStyle, setMapViewStyle] = useState<MapViewStyleType>('standard');
 
 interface MapViewComponentProps {
   initialViewState: {
@@ -35,7 +37,7 @@ const MapViewComponent: React.FC<MapViewComponentProps> = ({
 }) => {
   const mapRef = useRef<MapRef>(null);
 
-  // Map control functions
+  // Map control functions -- add the change map style next to this here
   const zoomIn = useCallback(() => {
     if (mapRef.current) {
       const map = mapRef.current.getMap();
@@ -62,6 +64,21 @@ const MapViewComponent: React.FC<MapViewComponentProps> = ({
       });
     }
   }, [userLocation, initialViewState.zoom]);
+
+  // const [mapSwitchStyle, setMapStyle] = useState<MapSwitchStyleType>('standard');
+
+  const handleMapViewStyleChange = useCallback(() => {
+    setMapViewStyle((currentStyle) => {
+      switch (currentStyle) {
+        case 'standard':
+          return 'satellite';
+        case 'satellite':
+          return 'terrain';
+        case 'terrain':
+          return 'standard';
+      }
+    });
+  }, []);
 
   // Render a map marker
   const renderMarker = useCallback((marker: MapMarker) => {
@@ -143,6 +160,13 @@ const MapViewComponent: React.FC<MapViewComponentProps> = ({
         >
           <MaterialIcons name="my-location" size={24} color="#FFFFFF" />
         </TouchableOpacity>
+        <TouchableOpacity
+        style={styles.mapStyleButton}
+        onPress={handleMapViewStyleChange}
+        accessibilityLabel="Change map style"
+      >
+        <MaterialIcons name="layers" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
       </View>
     </View>
   );
@@ -176,6 +200,13 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   mapControlButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  mapStyleButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',

@@ -9,22 +9,7 @@ const REFRESH_TOKEN_KEY = 'refreshToken';
 const USER_KEY = 'user';
 
 /**
- * Auth response interface - matching the backend structure
- */
-export interface AuthResponse {
-  success: boolean;
-  data: {
-    user: User;
-    tokens: {
-      token: string;
-      refreshToken?: string;
-    };
-  };
-  message?: string;
-}
-
-/**
- * Login request
+ * Login request interface
  */
 export interface LoginRequest {
   username?: string;
@@ -33,7 +18,7 @@ export interface LoginRequest {
 }
 
 /**
- * Register request
+ * Register request interface
  */
 export interface RegisterRequest {
   username: string;
@@ -43,7 +28,7 @@ export interface RegisterRequest {
 }
 
 /**
- * Social auth request
+ * Social auth request interface
  */
 export interface SocialAuthRequest {
   provider: 'google' | 'facebook' | 'twitter';
@@ -53,48 +38,54 @@ export interface SocialAuthRequest {
 }
 
 /**
+ * Auth response interface
+ */
+export interface AuthResponse {
+  user: User;
+  tokens: {
+    token: string;
+    refreshToken?: string;
+  };
+}
+
+/**
  * Auth service for handling authentication
  */
 class AuthService {
   /**
    * Login with email/username and password
    */
-  public async login(loginData: LoginRequest): Promise<{user: User, tokens: {token: string, refreshToken?: string}}> {
+  public async login(loginData: LoginRequest): Promise<AuthResponse> {
     try {
-      const response = await API.post<{user: User, tokens: {token: string, refreshToken?: string}}>('/auth/login', loginData);
+      const response = await API.post<AuthResponse>('/auth/login', loginData);
       
       // Save auth data
       await this.saveAuthData(response);
       
       return response;
     } catch (error) {
-      throw error;
+      const errorMessage = error instanceof Error
+        ? error.message 
+        : 'Login failed. Please check your credentials.';
+      console.error('Login error:', error);
+      
+      throw new Error(errorMessage);
     }
   }
   
   /**
    * Register a new user
    */
-  public async register(registerData: RegisterRequest): Promise<{user: User, tokens: {token: string, refreshToken?: string}}> {
+  public async register(registerData: RegisterRequest): Promise<AuthResponse> {
     try {
-      // Using any here to handle potential different response structures
-      const response = await API.post<any>('/auth/register', registerData);
-      
-      // Extract user and tokens, regardless of whether they're in data property or at the root
-      const result = {
-        user: response.user || (response.data ? response.data.user : null),
-        tokens: response.tokens || (response.data ? response.data.tokens : null)
-      };
-      
-      if (!result.user || !result.tokens) {
-        throw new Error('Invalid response format from server');
-      }
+      const response = await API.post<AuthResponse>('/auth/register', registerData);
       
       // Save auth data
-      await this.saveAuthData(result);
+      await this.saveAuthData(response);
       
-      return result;
+      return response;
     } catch (error) {
+      console.error('Registration error:', error);
       throw error;
     }
   }
@@ -102,15 +93,16 @@ class AuthService {
   /**
    * Authenticate with social provider
    */
-  public async socialAuth(socialAuthData: SocialAuthRequest): Promise<{user: User, tokens: {token: string, refreshToken?: string}}> {
+  public async socialAuth(socialAuthData: SocialAuthRequest): Promise<AuthResponse> {
     try {
-      const response = await API.post<{user: User, tokens: {token: string, refreshToken?: string}}>('/auth/social', socialAuthData);
+      const response = await API.post<AuthResponse>('/auth/social', socialAuthData);
       
       // Save auth data
       await this.saveAuthData(response);
       
       return response;
     } catch (error) {
+      console.error('Social auth error:', error);
       throw error;
     }
   }
@@ -124,32 +116,34 @@ class AuthService {
       const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
       if (!token) return null;
 
-      // First try to get from local storage to avoid unnecessary API calls
-      const userJson = await AsyncStorage.getItem(USER_KEY);
-      if (userJson) {
-        try {
-          const parsedUser = JSON.parse(userJson);
-          // If we have a valid user object, return it
-          if (parsedUser && parsedUser.id) {
-            return parsedUser;
-          }
-        } catch (parseError) {
-          console.warn("Error parsing cached user:", parseError);
-        }
-      }
-
-      // Fetch user from API
-      const user = await API.get<User>('/auth/me');
+      // Try to get from the API
+      const response = await API.get<AuthResponse>('/auth/me');
       
-      if (user) {
+      if (response && response.user) {
+        // Also save any new tokens
+        if (response.tokens && response.tokens.token) {
+          await AsyncStorage.setItem(AUTH_TOKEN_KEY, response.tokens.token);
+          
+          if (response.tokens.refreshToken) {
+            await AsyncStorage.setItem(REFRESH_TOKEN_KEY, response.tokens.refreshToken);
+          }
+        }
+        
         // Save user data
-        await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
-        return user;
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
+        return response.user;
       }
       
       return null;
     } catch (error) {
       console.error('Error fetching current user:', error);
+      
+      // Check if the error is a 401 Unauthorized
+      if (typeof error === 'object' && error !== null && 'status' in error && (error as any).status === 401) {
+        // Clear auth data and force re-login
+        await this.clearAuthData();
+      }
+      
       return null;
     }
   }
@@ -168,9 +162,7 @@ class AuthService {
       }
 
       // Clear local storage
-      await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
-      await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
-      await AsyncStorage.removeItem(USER_KEY);
+      await this.clearAuthData();
     } catch (error) {
       console.error('Error during logout:', error);
       throw error;
@@ -191,38 +183,36 @@ class AuthService {
   }
   
   /**
+   * Refresh authentication token
+   */
+  public async refreshToken(refreshToken: string): Promise<{tokens: {token: string, refreshToken?: string}}> {
+    try {
+      const response = await API.post<{tokens: {token: string, refreshToken?: string}}>('/auth/refresh-token', { refreshToken });
+      
+      // Save new tokens
+      if (response.tokens && response.tokens.token) {
+        await AsyncStorage.setItem(AUTH_TOKEN_KEY, response.tokens.token);
+        
+        if (response.tokens.refreshToken) {
+          await AsyncStorage.setItem(REFRESH_TOKEN_KEY, response.tokens.refreshToken);
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      throw error;
+    }
+  }
+  
+  /**
    * Save authentication data
    */
-  // private async saveAuthData(authResponse: any): Promise<void> {
-  //   try {
-  //     const tokens = authResponse.data?.tokens || authResponse.tokens;
-    
-  //   if (!tokens || !tokens.token) {
-  //     console.error('Invalid auth response structure:', authResponse);
-  //     throw new Error('Invalid authentication response structure');
-  //   }
-  //     // Save tokens
-  //     await AsyncStorage.setItem(AUTH_TOKEN_KEY, /*authResponse.*/tokens.token);
-  //     if (/*authResponse.*/tokens.refreshToken) {
-  //       await AsyncStorage.setItem(REFRESH_TOKEN_KEY, /*authResponse.*/tokens.refreshToken);
-  //     }
-      
-  //     const user = authResponse.data?.user || authResponse.user;
-
-  //     if (user){
-  //       await AsyncStorage.setItem(USER_KEY, JSON.stringify(authResponse.user));
-  //     }
-
-  //     // Save user data
-  //         } catch (error) {
-  //     console.error('Error saving auth data:', error);
-  //     throw error;
-  //   }
-  // }
-  private async saveAuthData(authResponse: {user: User, tokens: {token: string, refreshToken?: string}}): Promise<void> {
+  private async saveAuthData(authResponse: AuthResponse): Promise<void> {
     try {
-      const { tokens, user } = authResponse;
+      const { user, tokens } = authResponse;
       
+      // Validate data
       if (!tokens || !tokens.token) {
         console.error('Invalid auth response structure:', authResponse);
         throw new Error('Invalid authentication response structure');
@@ -230,11 +220,12 @@ class AuthService {
       
       // Save tokens
       await AsyncStorage.setItem(AUTH_TOKEN_KEY, tokens.token);
+      
       if (tokens.refreshToken) {
         await AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
       }
       
-      // Save user data if available
+      // Save user data
       if (user) {
         await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
       }
@@ -243,20 +234,17 @@ class AuthService {
       throw error;
     }
   }
-
+  
   /**
-   * Refresh authentication token
+   * Clear all authentication data
    */
-  public async refreshToken(refreshToken: string): Promise<{tokens: {token: string, refreshToken?: string}}> {
-    try {
-      const response = await API.post<{tokens: {token: string, refreshToken?: string}}>('/auth/refresh-token', { refreshToken });
-      return response;
-    } catch (error) {
-      console.error('Error refreshing token:', error);
-      throw error;
-    }
+  private async clearAuthData(): Promise<void> {
+    await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+    await AsyncStorage.removeItem(USER_KEY);
   }
 }
+
 // Create and export singleton instance
 const authService = new AuthService();
 export default authService;

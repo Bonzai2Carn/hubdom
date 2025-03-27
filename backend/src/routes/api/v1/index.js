@@ -1,7 +1,8 @@
+// src/routes/api/v1/index.js
 const express = require("express");
 const router = express.Router();
 
-// Import route files - use require consistently
+// Import route files
 const authRoutes = require("./authRoutes");
 const hobbyRoutes = require("./hobbyRoutes");
 const eventRoutes = require("./eventRoutes");
@@ -20,18 +21,18 @@ router.get("/", (req, res) => {
   });
 });
 
-// Mount routes -- currently hobbies and events work perfectly except auth and users
+// Mount routes with correct references
 router.use("/auth", authRoutes);
 router.use("/hobbies", hobbyRoutes);
 router.use("/events", eventRoutes);
 router.use("/users", userRoutes);
 
-console.log('Mounting routes...');
-console.log('/auth', authRoutes);
-console.log('/hobbies', userRoutes);
-console.log('events', hobbyRoutes);
-console.log('users', eventRoutes);
-
+// Log routing for debugging
+console.log('Routes mounted successfully:');
+console.log('- /auth routes mounted');
+console.log('- /hobbies routes mounted');
+console.log('- /events routes mounted');
+console.log('- /users routes mounted');
 
 // Data routes
 router.get("/data", dataController.getData);
@@ -39,7 +40,7 @@ router.post("/data", dataController.addData);
 router.put("/data/:id", dataController.updateData);
 router.delete("/data/:id", dataController.deleteData);
 
-//Version deprecation middleware
+// Version deprecation middleware
 const deprecationCheck = (req, res, next) => {
   // Check for deprecated API versions
   if (req.baseUrl === '/api/v1' && process.env.DEPRECATE_V1 === 'true') {

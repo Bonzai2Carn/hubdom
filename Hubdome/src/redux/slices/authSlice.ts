@@ -37,9 +37,12 @@ export const loginUser = createAsyncThunk<
       const response = await authService.login(loginData);
       return response.user;
     } catch (error) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Login failed. Please try again.';
+      console.error("Login error:", error);
+
+      let errorMessage = "Login failed. Please check your credentials.";
+      if (error instanceof Error) { 
+      errorMessage = error.message; 
+      }
       return rejectWithValue(errorMessage);
     }
   }
@@ -153,6 +156,10 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
+        // Check if action.payload is an object and extract the message
+        // state.error = typeof action.payload === 'object' 
+        //   ? (action.payload.error || action.payload.message || 'Login failed') 
+        //   : (action.payload || 'Login failed');
         state.error = action.payload || 'Login failed';
       })
       

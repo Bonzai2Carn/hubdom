@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// mobile/src/components/events/CreateEventModal.tsx
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,42 +7,201 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView
 } from "react-native";
-import { TextInput } from "react-native-paper";
+import { TextInput, Button } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
+import { LocationService } from "../../services/locationService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Define prop types
+// Location services
+const LOCATION_CACHE_KEY = 'user:last-location';
+const LOCATION_TIMESTAMP_KEY = 'user:location-timestamp';
+
 interface CreateEventModalProps {
-    isVisible: boolean;
-    onClose: () => void;
-    onSubmit?: (eventData: any) => void;
-  }
+  isVisible: boolean;
+  onClose: () => void;
+  onSubmit?: (eventData: any) => void;
+}
 
-const CreateEventModal: React.FC<CreateEventModalProps> = ({ isVisible, onClose }) => {
+const CreateEventModal: React.FC<CreateEventModalProps> = ({ 
+  isVisible, 
+  onClose,
+  onSubmit 
+}) => {
+  // Form state
   const [eventName, setEventName] = useState("");
   const [eventDescription, setEventDescription] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
   const [eventLocation, setEventLocation] = useState("");
-
-  const handleSubmit = () => {
-    // Handle event creation logic here
-    console.log({
-      name: eventName,
-      description: eventDescription,
-      date: eventDate,
-      time: eventTime,
-      location: eventLocation,
-    });
-
-    // Reset form
+  const [coordinates, setCoordinates] = useState<{ latitude: number, longitude: number } | null>(null);
+  const [isGeocodingLoading, setIsGeocodingLoading] = useState(false);
+  const [geocodingError, setGeocodingError] = useState<string | null>(null);
+  
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isVisible) {
+      resetForm();
+    }
+  }, [isVisible]);
+  
+  // Load cached location when modal opens
+  useEffect(() => {
+    if (isVisible) {
+      loadCachedLocation();
+    }
+  }, [isVisible]);
+  
+  const resetForm = () => {
     setEventName("");
     setEventDescription("");
     setEventDate("");
     setEventTime("");
     setEventLocation("");
+    setCoordinates(null);
+    setGeocodingError(null);
+  };
+  
+  // Load the user's cached location
+  const loadCachedLocation = async () => {
+    try {
+      const cachedLocationJson = await AsyncStorage.getItem(LOCATION_CACHE_KEY);
+      
+      if (cachedLocationJson) {
+        const cachedLocation = JSON.parse(cachedLocationJson);
+        setCoordinates({
+          latitude: cachedLocation.latitude,
+          longitude: cachedLocation.longitude
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load cached location:", error);
+    }
+  };
+  
+  // Geocode address
+  const geocodeAddress = async () => {
+    if (!eventLocation.trim()) {
+      setGeocodingError("Please enter a location");
+      return;
+    }
+    
+    setIsGeocodingLoading(true);
+    setGeocodingError(null);
+    
+    try {
+      // Use the LocationService to geocode the address
+      const locationService = LocationService.getInstance();
+      const result = await locationService.geocodeAddress(eventLocation);
+      
+      if (result.status === "success") {
+        setCoordinates({
+          latitude: result.latitude,
+          longitude: result.longitude
+        });
+        setGeocodingError(null);
+      } else {
+        setGeocodingError(result.error || "Failed to geocode address");
+        setCoordinates(null);
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      setGeocodingError("Failed to geocode address. Please try a different location.");
+      setCoordinates(null);
+    } finally {
+      setIsGeocodingLoading(false);
+    }
+  };
+  
+  // Use current location
+  const useCurrentLocation = async () => {
+    setIsGeocodingLoading(true);
+    setGeocodingError(null);
+    
+    try {
+      const locationService = LocationService.getInstance();
+      const location = await locationService.getCurrentLocation(true); // Force refresh
+      
+      if (location.status === 'success' && location.coordinates) {
+        const { latitude, longitude } = location.coordinates;
+        setCoordinates({ latitude, longitude });
+        
+        // Reverse geocode to get address
+        const addressResult = await locationService.reverseGeocodeLocation(latitude, longitude);
+        if (addressResult.status === 'success' && addressResult.address) {
+          const address = addressResult.address;
+          const formattedAddress = [
+            address.street,
+            address.city,
+            address.state,
+            address.country
+          ].filter(Boolean).join(", ");
+          
+          setEventLocation(formattedAddress || "Current Location");
+        } else {
+          setEventLocation("Current Location");
+        }
+        
+        setGeocodingError(null);
+      } else {
+        setGeocodingError("Failed to get current location");
+      }
+    } catch (error) {
+      console.error("Current location error:", error);
+      setGeocodingError("Failed to get current location. Please try entering an address.");
+    } finally {
+      setIsGeocodingLoading(false);
+    }
+  };
 
-    // Close modal
+  const handleSubmit = () => {
+    // Validate form
+    if (!eventName.trim()) {
+      Alert.alert("Error", "Please enter an event name");
+      return;
+    }
+    
+    if (!eventDescription.trim()) {
+      Alert.alert("Error", "Please add a description");
+      return;
+    }
+    
+    if (!eventDate) {
+      Alert.alert("Error", "Please select a date");
+      return;
+    }
+    
+    if (!eventTime) {
+      Alert.alert("Error", "Please select a time");
+      return;
+    }
+    
+    if (!eventLocation.trim() || !coordinates) {
+      Alert.alert("Error", "Please enter a valid location");
+      return;
+    }
+    
+    // Prepare eventData with the geocoded coordinates
+    const eventData = {
+      title: eventName,
+      description: eventDescription,
+      date: eventDate,
+      time: eventTime,
+      location: eventLocation,
+      coordinates: coordinates,
+    };
+    
+    // Call the onSubmit callback with the event data
+    if (onSubmit) {
+      onSubmit(eventData);
+    }
+    
+    // Reset form and close modal
+    resetForm();
     onClose();
   };
 
@@ -53,7 +213,10 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({ isVisible, onClose 
       onRequestClose={onClose}
     >
       <View style={styles.centeredView}>
-        <View style={styles.modalView}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalView}
+        >
           {/* Header */}
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Create Hobby Event</Text>
@@ -141,23 +304,65 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({ isVisible, onClose 
             {/* Location */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Location</Text>
-              <View style={styles.inputWithIcon}>
-                <MaterialIcons
-                  name="location-on"
-                  size={20}
-                  color="#BBBBBB"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  value={eventLocation}
-                  onChangeText={setEventLocation}
-                  placeholder="Enter location or drop pin on map"
-                  placeholderTextColor="#BBBBBB"
-                  mode="outlined"
-                  style={styles.input}
-                  theme={{ colors: { primary: "#3498DB" } }}
-                />
+              <View style={styles.locationInputContainer}>
+                <View style={styles.inputWithIcon}>
+                  <MaterialIcons
+                    name="location-on"
+                    size={20}
+                    color="#BBBBBB"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    value={eventLocation}
+                    onChangeText={setEventLocation}
+                    placeholder="Enter a location or address"
+                    placeholderTextColor="#BBBBBB"
+                    mode="outlined"
+                    style={styles.input}
+                    theme={{ colors: { primary: "#3498DB" } }}
+                    onBlur={geocodeAddress}
+                  />
+                </View>
+                
+                <View style={styles.locationActions}>
+                  <TouchableOpacity 
+                    style={styles.locationActionButton}
+                    onPress={geocodeAddress}
+                    disabled={isGeocodingLoading || !eventLocation.trim()}
+                  >
+                    <MaterialIcons name="search" size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.locationActionButton}
+                    onPress={useCurrentLocation}
+                    disabled={isGeocodingLoading}
+                  >
+                    <MaterialIcons name="my-location" size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
               </View>
+              
+              {isGeocodingLoading && (
+                <View style={styles.geocodingStatus}>
+                  <ActivityIndicator size="small" color="#3498DB" />
+                  <Text style={styles.geocodingStatusText}>Finding location...</Text>
+                </View>
+              )}
+              
+              {geocodingError && (
+                <View style={styles.geocodingStatus}>
+                  <MaterialIcons name="error" size={16} color="#E74C3C" />
+                  <Text style={styles.geocodingErrorText}>{geocodingError}</Text>
+                </View>
+              )}
+              
+              {coordinates && !geocodingError && !isGeocodingLoading && (
+                <View style={styles.geocodingStatus}>
+                  <MaterialIcons name="check-circle" size={16} color="#2ECC71" />
+                  <Text style={styles.geocodingSuccessText}>Location found</Text>
+                </View>
+              )}
             </View>
           </ScrollView>
 
@@ -170,13 +375,18 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({ isVisible, onClose 
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, styles.submitButton]}
+              style={[
+                styles.button, 
+                styles.submitButton,
+                (!eventName || !eventLocation || !coordinates || !eventDate || !eventTime) ? styles.disabledButton : {}
+              ]}
               onPress={handleSubmit}
+              disabled={!eventName || !eventLocation || !coordinates || !eventDate || !eventTime}
             >
               <Text style={styles.submitButtonText}>Create Event</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -187,7 +397,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(24, 24, 24, 0.7)",
   },
   modalView: {
     width: "90%",
@@ -232,11 +442,13 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: "#1E1E2A",
+    color: "#BBBBBB",
   },
   inputWithIcon: {
     position: "relative",
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   inputIcon: {
     position: "absolute",
@@ -247,6 +459,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 16,
+  },
+  locationInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  locationActions: {
+    flexDirection: "row",
+    marginLeft: 8,
+  },
+  locationActionButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: "#3498DB",
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  geocodingStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  geocodingStatusText: {
+    marginLeft: 8,
+    color: "#BBBBBB",
+    fontSize: 12,
+  },
+  geocodingErrorText: {
+    marginLeft: 8,
+    color: "#E74C3C",
+    fontSize: 12,
+  },
+  geocodingSuccessText: {
+    marginLeft: 8,
+    color: "#2ECC71",
+    fontSize: 12,
   },
   modalFooter: {
     flexDirection: "row",
@@ -272,6 +521,9 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: "#3498DB",
+  },
+  disabledButton: {
+    backgroundColor: "rgba(52, 152, 219, 0.5)",
   },
   submitButtonText: {
     color: "white",

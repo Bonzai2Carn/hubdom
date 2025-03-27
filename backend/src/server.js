@@ -5,69 +5,58 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const mongoose = require("mongoose");
-// const csrf = require('csurf');
 const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
 const { logger, requestLogger } = require('./middleware/logger');
-// apply helmet to this later
+
 const app = express();
 
-// Define allowed origins
+// Define allowed origins for CORS
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
-  : ["http://localhost:19006",
-    "http://localhost:19000",
-      "http://localhost:8081", // Add this line
+  : [
+      "http://localhost:19006",
+      "http://localhost:19000",
+      "http://localhost:8081",
       "exp://127.0.0.1:19000",
-  ];
+      "exp://192.168.1.2:19000"
+    ];
 
-// Increase the JSON body size limit
+// Use Helmet for security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for development
+}));
+
+// Apply logger middleware first
+app.use(requestLogger);
+
+// Parse cookies
+app.use(cookieParser());
+
+// Configure body parser with increased limits
 app.use(bodyParser.json({ limit: "50mb" }));
-
-// Increase the URL-encoded payload size limit
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
-// Add cookie parser middleware
-app.use (cookieParser());
-
-// // Add CSRF protection middleware
-// const csrfProtection = csrf({ 
-//   cookie: {
-//     httpOnly: true,
-//     secure: process.env.NODE_ENV === 'production',
-//     sameSite: 'strict'
-//   } 
-// });
-
-// // Generate CSRF token endpoint
-// app.get('/api/v1/security/csrf-token', csrfProtection, (req, res) => {
-//   res.json({ 
-//     success: true, 
-//     data: { csrfToken: req.csrfToken() }
-//   });
-// });
-
+// Configure CORS
 app.use(
   cors({
-    origin: allowedOrigins,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl requests)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        console.warn(`Origin ${origin} not allowed by CORS`);
+        return callback(null, true); // Allow all origins in development for easier testing
+        // In production, use: return callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
-// app.use(
-//   cors({
-//     origin: (origin, callback) => {
-//       if (!origin || allowedOrigins.includes(origin)) {
-//         callback(null, true);
-//       } else {
-//         callback(new Error("Not allowed by CORS"));
-//       }
-//     },
-//     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-//     allowedHeaders: ["Content-Type", "Authorization"],
-//     credentials: true,
-//   })
-// );
 
 // MongoDB Connection
 const MONGODB_URI =
@@ -75,7 +64,9 @@ const MONGODB_URI =
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+    await mongoose.connect(MONGODB_URI, { 
+      serverSelectionTimeoutMS: 5000,
+    });
     console.log("Database connected to:", MONGODB_URI);
   } catch (err) {
     console.error("MongoDB connection error:", err);
@@ -83,24 +74,28 @@ const connectDB = async () => {
   }
 };
 
+// Connect to MongoDB
 connectDB();
 
-// Import routes - FIX: Use the correct path
-const apiV1Routes = require("./routes/api/v1"); //add /index
+// Import routes
+const apiV1Routes = require("./routes/api/v1");
 
-// Mount API routes - FIX: Use just /api/v1 instead of /api/v1/index
+// Mount API routes
 app.use("/api/v1", apiV1Routes);
-// app.use('/api/v1/auth', csrfProtection, authRoutes);
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).send({ error: "Route not found" });
+  res.status(404).json({ 
+    success: false,
+    error: `Route not found: ${req.originalUrl}` 
+  });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error("Error:", err.stack);
-  res.status(err.status || 500).send({
+  res.status(err.status || 500).json({
+    success: false,
     error: {
       message: err.message || "Something went wrong!",
       status: err.status || 500,
@@ -110,11 +105,8 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
-//logger
-app.use(requestLogger);
-
-module.exports = app; // for testing
+module.exports = { app, server }; // Export for testing

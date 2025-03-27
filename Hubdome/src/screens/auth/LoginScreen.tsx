@@ -42,6 +42,7 @@ const LoginScreen: React.FC = () => {
   // Effects
   useEffect(() => {
     // Show error message if there is one
+    console.log('Error type:', typeof error, 'Error value:', error);
     if (error) {
       setErrorVisible(true);
     }
@@ -235,18 +236,18 @@ const LoginScreen: React.FC = () => {
 
       {/* Error Message */}
       <Snackbar
-        visible={errorVisible}
-        onDismiss={dismissError}
-        duration={3000}
-        style={styles.errorSnackbar}
-        action={{
-          label: 'OK',
-          onPress: dismissError,
-          color: '#FFFFFF',
-        }}
-      >
-        {error || 'An error occurred during login'}
-      </Snackbar>
+  visible={errorVisible}
+  onDismiss={dismissError}
+  duration={3000}
+  style={styles.errorSnackbar}
+  action={{
+    label: 'OK',
+    onPress: dismissError,
+    color: '#FFFFFF',
+  }}
+>
+  {error || 'An error occurred during login.'}
+</Snackbar>
     </SafeAreaView>
   );
 };
