@@ -8,13 +8,13 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useSelector, useDispatch } from "react-redux";
+import { NavigationProp } from "@react-navigation/native";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { logoutUser } from "../../redux/actions/authActions";
 import { getAllHobbies } from "../../redux/actions/hobbyActions";
-import { NavigationProp } from '@react-navigation/native';
-import { RootState, AppDispatch } from '../../redux/store'; // Adjust path as needed
 
 interface ProfileSidebarProps {
   isVisible: boolean;
@@ -22,58 +22,40 @@ interface ProfileSidebarProps {
   navigation: NavigationProp<any>;
 }
 
-// Add type for your Redux state if not already defined
-interface UserState {
-  userInfo: {
-    name?: string;
-    email?: string;
-    avatar?: string;
-  };
+// User hobby type
+interface UserHobby {
+  id: string;
+  name: string;
+  level: string;
+  color: string;
+  participants: number;
+  events: number;
 }
 
-interface HobbyState {
-  hobbies: any[];
-  loading: boolean;
+// Event participation type
+interface EventParticipation {
+  id: string;
+  name: string;
+  type: string;
+  date: string;
+  members: number;
+  isCreator: boolean;
 }
 
-const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isVisible, onClose, navigation }) => {
-  const dispatch = useDispatch<AppDispatch>(); // Add AppDispatch type from your store
-  const user = useSelector((state: RootState) => state.user.userInfo);
-  const { hobbies, loading: hobbiesLoading } = useSelector((state: RootState) => state.hobby);
+const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
+  isVisible,
+  onClose,
+  navigation,
+}) => {
+  // Redux hooks
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.user.userInfo);
+  const { hobbies, loading: hobbiesLoading } = useAppSelector((state) => state.hobby);
   
   // Local state
   const [activeSection, setActiveSection] = useState("hobbies");
-  
-  // Mocked user hobbies data for now - will be replaced with API data
-  const [userHobbies, setUserHobbies] = useState([
-    {
-      id: "1",
-      name: "Photography",
-      level: "Intermediate",
-      color: "#F97316",
-      participants: 24,
-      events: 3,
-    },
-    {
-      id: "2",
-      name: "Hiking",
-      level: "Advanced",
-      color: "#3B82F6",
-      participants: 18,
-      events: 2,
-    },
-    {
-      id: "3",
-      name: "Cooking",
-      level: "Beginner",
-      color: "#EF4444",
-      participants: 12,
-      events: 1,
-    },
-  ]);
-
-  // Mocked user participation in events
-  const [userParticipations, setUserParticipations] = useState([
+  const [userHobbies, setUserHobbies] = useState<UserHobby[]>([]);
+  const [userParticipations, setUserParticipations] = useState<EventParticipation[]>([
     {
       id: "1",
       name: "Photography Workshop",
@@ -100,31 +82,115 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isVisible, onClose, nav
     },
   ]);
 
-  // Fetch hobbies on mount
+  // Helper function to get hobby color based on category
+  const getHobbyColor = (category?: string): string => {
+    const colorMap: Record<string, string> = {
+      "Sports & Fitness": "#3B82F6", // blue
+      "Creative & Visual Arts": "#EC4899", // pink
+      "Technology": "#10B981", // green
+      "Outdoors": "#F59E0B", // amber
+      "Food & Cooking": "#EF4444", // red
+      // Map each category number to a color
+      "1": "#3B82F6", // Sports & Fitness
+      "2": "#EC4899", // Creative & Visual Arts
+      "3": "#10B981", // Technology
+      "4": "#F59E0B", // Outdoors
+      "5": "#EF4444", // Food & Cooking
+      "default": "#3498DB", // default blue
+    };
+    
+    return colorMap[category || "default"] || colorMap.default;
+  };
+
+  // Helper function to determine hobby level
+  const getUserHobbyLevel = (hobbyData: any): string => {
+    // This would normally be based on user activity, time spent, etc.
+    if (hobbyData.userLevel) return hobbyData.userLevel;
+    
+    // Demo logic - random level
+    const levels = ["Beginner", "Intermediate", "Advanced"];
+    const randomIndex = Math.floor(Math.random() * levels.length);
+    return levels[randomIndex];
+  };
+
+  // Helper function to get event count for a hobby
+  const getEventsCountForHobby = (hobbyId: string): number => {
+    // In a real app, this would use actual data
+    return Math.floor(Math.random() * 6);
+  };
+
+  // Fetch hobbies on sidebar open
   useEffect(() => {
     if (isVisible) {
       dispatch(getAllHobbies());
     }
   }, [isVisible, dispatch]);
 
+  // Process hobbies from Redux store
+  useEffect(() => {
+    if (hobbies && hobbies.length > 0 && user) {
+      try {
+        // Filter to user's hobbies
+        // This logic will depend on your data structure
+        const userJoinedHobbies = hobbies.filter(hobby => 
+          hobby.members?.includes(user.id) || 
+          hobby.isJoined || 
+          (user.hobbies && user.hobbies.includes(hobby.id))
+        );
+        
+        if (userJoinedHobbies.length === 0) {
+          // No hobbies found - just clear the local state
+          setUserHobbies([]);
+          return;
+        }
+        
+        // Format hobbies for display
+        const formattedHobbies = userJoinedHobbies.map(hobby => ({
+          id: hobby.id || String(Math.random()),
+          name: hobby.name || "Unnamed Hobby",
+          level: getUserHobbyLevel(hobby),
+          color: getHobbyColor(hobby.category),
+          participants: hobby.members?.length || hobby.popularity || Math.floor(Math.random() * 100) + 20,
+          events: hobby.eventsCount || getEventsCountForHobby(hobby.id),
+        }));
+        
+        setUserHobbies(formattedHobbies);
+      } catch (error) {
+        console.error("Error processing hobbies:", error);
+        setUserHobbies([]);
+      }
+    } else if (hobbies && hobbies.length === 0) {
+      setUserHobbies([]);
+    }
+  }, [hobbies, user]);
+
+  // Handle logout
   const handleLogout = () => {
-    dispatch(logoutUser());
-    onClose();
+    dispatch(logoutUser())
+      .then(() => {
+        // Close sidebar after successful logout
+        onClose();
+      })
+      .catch(error => {
+        console.error("Logout error:", error);
+        Alert.alert("Error", "Failed to log out. Please try again.");
+      });
   };
 
-  // Navigate to hobby detail screen
+  // Navigate to hobby detail
   const navigateToHobby = (hobbyId: string) => {
     onClose();
     navigation.navigate("HobbyDetail", { hobbyId });
   };
 
-  // Navigate to chat screen (to be implemented)
+  // Navigate to chat (placeholder)
   const navigateToChat = (eventId: string) => {
     onClose();
-    // Placeholder: Will navigate to chat screen when implemented
-    console.log(`Navigate to chat for event: ${eventId}`);
+    // This would typically navigate to a chat screen
+    Alert.alert("Coming Soon", "Chat functionality is under development.");
   };
 
+  // Render hobbies section
   const renderHobbiesSection = () => (
     <View style={styles.sectionContent}>
       <Text style={styles.sectionDescription}>
@@ -133,7 +199,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isVisible, onClose, nav
       
       {hobbiesLoading ? (
         <ActivityIndicator size="small" color="#3498DB" style={styles.loader} />
-      ) : (
+      ) : userHobbies.length > 0 ? (
         <View style={styles.hobbiesGrid}>
           {userHobbies.map((hobby) => (
             <TouchableOpacity
@@ -158,25 +224,39 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isVisible, onClose, nav
             </TouchableOpacity>
           ))}
         </View>
+      ) : (
+        <View style={styles.emptyState}>
+          <MaterialIcons name="interests" size={48} color="rgba(255,255,255,0.2)" />
+          <Text style={styles.emptyStateTitle}>
+            You haven't added any hobbies yet
+          </Text>
+          <Text style={styles.emptyStateMessage}>
+            Add hobbies to discover events and connect with others
+          </Text>
+        </View>
       )}
       
       <TouchableOpacity 
-        style={styles.addHobbyButton}
-        onPress={() => navigation.navigate("CreateHobby")}
+        style={styles.addButton}
+        onPress={() => {
+          onClose();
+          navigation.navigate("CreateHobby");
+        }}
       >
         <MaterialIcons name="add" size={18} color="#3498DB" />
-        <Text style={styles.addHobbyText}>Add New Hobby</Text>
+        <Text style={styles.addButtonText}>Add New Hobby</Text>
       </TouchableOpacity>
     </View>
   );
 
+  // Render participations section
   const renderParticipatesSection = () => (
     <View style={styles.sectionContent}>
       <Text style={styles.sectionDescription}>
         Events you've created or joined
       </Text>
       
-      <View style={styles.participationList}>
+      <View style={styles.eventsList}>
         {userParticipations.map((event) => (
           <TouchableOpacity
             key={event.id}
@@ -233,13 +313,13 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isVisible, onClose, nav
     </View>
   );
 
+  // Render account section
   const renderAccountSection = () => (
     <View style={styles.sectionContent}>
       <Text style={styles.sectionDescription}>
         Account settings and preferences
       </Text>
       
-      {/* Placeholder for account settings */}
       <View style={styles.settingsPlaceholder}>
         <MaterialIcons name="settings" size={48} color="#BBBBBB" />
         <Text style={styles.placeholderText}>
@@ -269,6 +349,18 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isVisible, onClose, nav
           {/* Profile Info */}
           <View style={styles.profileInfo}>
             <View style={styles.profileImageContainer}>
+              {user?.avatar ? (
+                <Image 
+                  source={{ uri: user.avatar }} 
+                  style={styles.profileImage} 
+                />
+              ) : (
+                <View style={styles.profileImagePlaceholder}>
+                  <Text style={styles.profileImagePlaceholderText}>
+                    {user?.name?.charAt(0) || "U"}
+                  </Text>
+                </View>
+              )}
               <TouchableOpacity style={styles.editProfileButton}>
                 <MaterialIcons name="edit" size={16} color="#FFFFFF" />
               </TouchableOpacity>
@@ -278,6 +370,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isVisible, onClose, nav
           </View>
 
           <View style={styles.divider} />
+          
           {/* Section Tabs */}
           <View style={styles.tabsContainer}>
             <TouchableOpacity 

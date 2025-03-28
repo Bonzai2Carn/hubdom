@@ -3,8 +3,8 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 
 interface EventTypeToggleProps {
-  selectedType: "public" | "private" | "paid";
-  onSelectType: (type: "public" | "private" | "paid") => void;
+  selectedType: "solo" | "private" | "public";
+  onSelectType: (type: "solo" | "private" | "public") => void;
 }
 
 const EventTypeToggle: React.FC<EventTypeToggleProps> = ({
@@ -16,18 +16,18 @@ const EventTypeToggle: React.FC<EventTypeToggleProps> = ({
       <TouchableOpacity
         style={[
           styles.toggleButton,
-          selectedType === "public" && styles.selectedToggle,
+          selectedType === "solo" && styles.selectedToggle,
           styles.leftButton,
         ]}
-        onPress={() => onSelectType("public")}
+        onPress={() => onSelectType("solo")}
       >
         <Text
           style={[
             styles.toggleText,
-            selectedType === "public" && styles.selectedToggleText,
+            selectedType === "solo" && styles.selectedToggleText,
           ]}
         >
-          Public
+          Solo
         </Text>
       </TouchableOpacity>
 
@@ -52,18 +52,18 @@ const EventTypeToggle: React.FC<EventTypeToggleProps> = ({
       <TouchableOpacity
         style={[
           styles.toggleButton,
-          selectedType === "paid" && styles.selectedToggle,
+          selectedType === "public" && styles.selectedToggle,
           styles.rightButton,
         ]}
-        onPress={() => onSelectType("paid")}
+        onPress={() => onSelectType("public")}
       >
         <Text
           style={[
             styles.toggleText,
-            selectedType === "paid" && styles.selectedToggleText,
+            selectedType === "public" && styles.selectedToggleText,
           ]}
         >
-          Paid
+          Public
         </Text>
       </TouchableOpacity>
     </View>
@@ -97,10 +97,10 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#666",
+    color: "#FFFFFF",
   },
   selectedToggleText: {
-    color: "#FFF",
+    color: "#FFFFFF",
   },
 });
 

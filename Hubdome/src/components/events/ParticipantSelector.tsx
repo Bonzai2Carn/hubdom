@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 14,
-    color: "#333",
+    color: "##FFFFFF",
   },
 });
 

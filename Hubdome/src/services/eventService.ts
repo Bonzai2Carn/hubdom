@@ -47,7 +47,9 @@ export interface CreateEventData {
   startDate: string;
   endDate: string;
   capacity?: number;
+  isSolo?: boolean; //added this
   isPrivate?: boolean;
+  isPublic?: boolean;
 }
 
 /**

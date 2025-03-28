@@ -21,5 +21,5 @@ export default function Discover() {
     goBack: () => router.back()
   };
   
-  return <DiscoverScreen/>; //navigation={navigationProp} 
+  return <DiscoverScreen />;
 }

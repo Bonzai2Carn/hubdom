@@ -27,7 +27,7 @@ export interface MapMarker {
   export const MAP_STYLE_URLS: Record<MapStyleType, string> = {
     standard: 'https://tiles.openfreemap.org/styles/positron',
     satellite: require('../../public/styles/polygon.json'),
-    terrain: 'https://tiles.openfreemap.org/styles/liberty'
+    terrain: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
     
   };
   

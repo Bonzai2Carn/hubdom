@@ -211,3 +211,41 @@
 {"level":"info","message":"POST /api/v1/users/location 401 0.700 ms - {\"latitude\":39.8229504,\"longitude\":-86.163456,\"timestamp\":\"2025-03-27T03:14:24.184Z\"}","timestamp":"2025-03-27T03:14:24.201Z"}
 {"level":"info","message":"POST /api/v1/users/location 401 0.524 ms - {\"latitude\":39.8229504,\"longitude\":-86.163456,\"timestamp\":\"2025-03-27T03:14:26.189Z\"}","timestamp":"2025-03-27T03:14:26.193Z"}
 {"level":"info","message":"GET /api/v1/hobbies 304 19.455 ms - {}","timestamp":"2025-03-27T04:54:38.378Z"}
+{"level":"info","message":"OPTIONS /api/v1/auth/login 204 1.757 ms - {}","timestamp":"2025-03-27T06:16:03.632Z"}
+{"level":"info","message":"POST /api/v1/auth/login 200 120.878 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-27T06:16:03.756Z"}
+{"level":"info","message":"OPTIONS /api/v1/hobbies 204 0.116 ms - {}","timestamp":"2025-03-27T06:16:21.363Z"}
+{"level":"info","message":"GET /api/v1/hobbies 304 1.853 ms - {}","timestamp":"2025-03-27T06:16:21.366Z"}
+{"level":"info","message":"OPTIONS /api/v1/auth/logout 204 0.163 ms - {}","timestamp":"2025-03-27T06:16:23.276Z"}
+{"level":"info","message":"POST /api/v1/auth/logout 200 0.435 ms - {}","timestamp":"2025-03-27T06:16:23.281Z"}
+{"level":"info","message":"GET /api/v1/hobbies 304 13.383 ms - {}","timestamp":"2025-03-27T21:25:48.997Z"}
+{"level":"info","message":"POST /api/v1/hobbies/1-running/join 401 11.157 ms - {}","timestamp":"2025-03-28T01:52:33.970Z"}
+{"level":"info","message":"POST /api/v1/hobbies/1-basketball/join 401 1.062 ms - {}","timestamp":"2025-03-28T01:52:33.985Z"}
+{"level":"info","message":"POST /api/v1/hobbies/1-soccer/join 401 0.771 ms - {}","timestamp":"2025-03-28T01:52:33.994Z"}
+{"level":"info","message":"POST /api/v1/hobbies/1-skateboarding/join 401 0.630 ms - {}","timestamp":"2025-03-28T01:52:33.998Z"}
+{"level":"info","message":"POST /api/v1/hobbies/2-painting/join 401 0.956 ms - {}","timestamp":"2025-03-28T01:52:34.010Z"}
+{"level":"info","message":"POST /api/v1/hobbies/2-drawing/join 401 1.527 ms - {}","timestamp":"2025-03-28T01:52:34.019Z"}
+{"level":"info","message":"POST /api/v1/hobbies/2-photography/join 401 0.680 ms - {}","timestamp":"2025-03-28T01:52:34.071Z"}
+{"level":"info","message":"POST /api/v1/hobbies/2-digital-art/join 401 0.884 ms - {}","timestamp":"2025-03-28T01:52:34.077Z"}
+{"level":"info","message":"POST /api/v1/hobbies/3-programming/join 401 0.910 ms - {}","timestamp":"2025-03-28T01:52:34.103Z"}
+{"level":"info","message":"POST /api/v1/hobbies/3-gaming/join 401 0.693 ms - {}","timestamp":"2025-03-28T01:52:34.108Z"}
+{"level":"info","message":"POST /api/v1/hobbies/3-robotics/join 401 1.075 ms - {}","timestamp":"2025-03-28T01:52:34.113Z"}
+{"level":"info","message":"POST /api/v1/hobbies/3-web-design/join 401 0.646 ms - {}","timestamp":"2025-03-28T01:52:34.117Z"}
+{"level":"info","message":"POST /api/v1/hobbies/3-ai/ml/join 404 9.159 ms - {}","timestamp":"2025-03-28T01:52:34.120Z"}
+{"level":"info","message":"POST /api/v1/hobbies/3-mobile-apps/join 401 0.789 ms - {}","timestamp":"2025-03-28T01:52:34.124Z"}
+{"level":"info","message":"POST /api/v1/hobbies/4-fishing/join 401 0.689 ms - {}","timestamp":"2025-03-28T01:52:34.127Z"}
+{"level":"info","message":"POST /api/v1/hobbies/4-bird-watching/join 401 0.864 ms - {}","timestamp":"2025-03-28T01:52:34.133Z"}
+{"level":"info","message":"POST /api/v1/hobbies/5-wine-tasting/join 401 1.035 ms - {}","timestamp":"2025-03-28T01:52:34.136Z"}
+{"level":"info","message":"POST /api/v1/hobbies/3-ai/ml/join 404 0.956 ms - {}","timestamp":"2025-03-28T01:52:35.173Z"}
+{"level":"info","message":"POST /api/v1/hobbies/3-ai/ml/join 404 1.634 ms - {}","timestamp":"2025-03-28T01:52:37.189Z"}
+{"level":"info","message":"POST /api/v1/hobbies/3-ai/ml/join 404 1.774 ms - {}","timestamp":"2025-03-28T01:52:41.211Z"}
+{"level":"info","message":"GET /api/v1/hobbies 304 42.415 ms - {}","timestamp":"2025-03-28T03:00:25.123Z"}
+{"level":"info","message":"POST /api/v1/auth/logout 200 2.206 ms - {}","timestamp":"2025-03-28T03:01:20.726Z"}
+{"level":"info","message":"POST /api/v1/auth/logout 200 0.963 ms - {}","timestamp":"2025-03-28T03:01:25.808Z"}
+{"level":"info","message":"OPTIONS /api/v1/auth/register 204 0.508 ms - {}","timestamp":"2025-03-28T03:02:43.771Z"}
+{"level":"info","message":"POST /api/v1/auth/register 400 20.070 ms - {\"name\":\"Test User 2\",\"email\":\"test2@example.com\",\"username\":\"testuser2\",\"password\":\"********\"}","timestamp":"2025-03-28T03:02:43.800Z"}
+{"level":"info","message":"POST /api/v1/auth/register 400 5.338 ms - {\"name\":\"Test User 2\",\"email\":\"test2@example.com\",\"username\":\"testuser2\",\"password\":\"********\"}","timestamp":"2025-03-28T03:02:44.822Z"}
+{"level":"info","message":"POST /api/v1/auth/register 400 4.808 ms - {\"name\":\"Test User 2\",\"email\":\"test2@example.com\",\"username\":\"testuser2\",\"password\":\"********\"}","timestamp":"2025-03-28T03:02:46.836Z"}
+{"level":"info","message":"OPTIONS /api/v1/auth/register 204 0.312 ms - {}","timestamp":"2025-03-28T03:02:50.850Z"}
+{"level":"info","message":"POST /api/v1/auth/register 400 4.679 ms - {\"name\":\"Test User 2\",\"email\":\"test2@example.com\",\"username\":\"testuser2\",\"password\":\"********\"}","timestamp":"2025-03-28T03:02:50.858Z"}
+{"level":"info","message":"POST /api/v1/auth/logout 200 1.066 ms - {}","timestamp":"2025-03-28T03:33:45.682Z"}
+{"level":"info","message":"GET /api/v1/hobbies 304 10.756 ms - {}","timestamp":"2025-03-28T04:02:48.134Z"}

@@ -1,5 +1,5 @@
 // src/components/maps/MapViewComponent.tsx
-import React, { useRef, useState, useCallback, memo } from 'react';
+import React, { useRef, useState, useCallback, memo, forwardRef, useImperativeHandle } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Map, { MapRef, Marker, NavigationControl } from '@vis.gl/react-maplibre';
@@ -7,9 +7,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 // Types
-// import { MapMarker } from '../../types/map';
-import { MapMarker, MapViewStyleType, MAP_STYLE_URLS } from "../../types/map";
-const [mapViewStyle, setMapViewStyle] = useState<MapViewStyleType>('standard');
+import { MapMarker, MapStyleType, MAP_STYLE_URLS } from "../../types/map";
 
 interface MapViewComponentProps {
   initialViewState: {
@@ -25,19 +23,73 @@ interface MapViewComponentProps {
   mapStyle: string;
   onMarkerPress: (marker: MapMarker) => void;
   selectedMarker: MapMarker | null;
+  onStyleChange?: () => void;
 }
 
-const MapViewComponent: React.FC<MapViewComponentProps> = ({
-  initialViewState,
-  markers,
-  userLocation,
-  mapStyle,
-  onMarkerPress,
-  selectedMarker
-}) => {
-  const mapRef = useRef<MapRef>(null);
+// Define public methods that can be called via ref
+export interface MapViewComponentHandle {
+  flyTo: (longitude: number, latitude: number, zoom?: number) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  recenter: () => void;
+}
 
-  // Map control functions -- add the change map style next to this here
+const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProps>((
+  {
+    initialViewState,
+    markers,
+    userLocation,
+    mapStyle,
+    onMarkerPress,
+    selectedMarker,
+    onStyleChange
+  }, 
+  ref
+) => {
+  const mapRef = useRef<MapRef>(null);
+  
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    flyTo: (longitude: number, latitude: number, zoom = 14) => {
+      if (mapRef.current) {
+        const map = mapRef.current.getMap();
+        map.flyTo({
+          center: [longitude, latitude],
+          zoom: zoom,
+          speed: 1.5,
+          curve: 1.5,
+          essential: true
+        });
+      }
+    },
+    zoomIn: () => {
+      if (mapRef.current) {
+        const map = mapRef.current.getMap();
+        const currentZoom = map.getZoom();
+        map.zoomTo(currentZoom + 1, { duration: 300 });
+      }
+    },
+    zoomOut: () => {
+      if (mapRef.current) {
+        const map = mapRef.current.getMap();
+        const currentZoom = map.getZoom();
+        map.zoomTo(Math.max(currentZoom - 1, 0), { duration: 300 });
+      }
+    },
+    recenter: () => {
+      if (mapRef.current && userLocation) {
+        const map = mapRef.current.getMap();
+        map.flyTo({
+          center: [userLocation.longitude, userLocation.latitude],
+          speed: 1.5,
+          zoom: initialViewState.zoom,
+          essential: true
+        });
+      }
+    }
+  }));
+
+  // Map control functions
   const zoomIn = useCallback(() => {
     if (mapRef.current) {
       const map = mapRef.current.getMap();
@@ -65,20 +117,26 @@ const MapViewComponent: React.FC<MapViewComponentProps> = ({
     }
   }, [userLocation, initialViewState.zoom]);
 
-  // const [mapSwitchStyle, setMapStyle] = useState<MapSwitchStyleType>('standard');
-
-  const handleMapViewStyleChange = useCallback(() => {
-    setMapViewStyle((currentStyle) => {
-      switch (currentStyle) {
-        case 'standard':
-          return 'satellite';
-        case 'satellite':
-          return 'terrain';
-        case 'terrain':
-          return 'standard';
-      }
-    });
+  // Fly to a specific location
+  const flyToLocation = useCallback((longitude: number, latitude: number, zoom: number = 15) => {
+    if (mapRef.current) {
+      const map = mapRef.current.getMap();
+      map.flyTo({
+        center: [longitude, latitude],
+        zoom: zoom,
+        speed: 1.2,
+        curve: 1.5,
+        essential: true
+      });
+    }
   }, []);
+
+  // Handle style change
+  const handleStyleChange = useCallback(() => {
+    if (onStyleChange) {
+      onStyleChange();
+    }
+  }, [onStyleChange]);
 
   // Render a map marker
   const renderMarker = useCallback((marker: MapMarker) => {
@@ -161,16 +219,16 @@ const MapViewComponent: React.FC<MapViewComponentProps> = ({
           <MaterialIcons name="my-location" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <TouchableOpacity
-        style={styles.mapStyleButton}
-        onPress={handleMapViewStyleChange}
-        accessibilityLabel="Change map style"
-      >
-        <MaterialIcons name="layers" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+          style={styles.mapStyleButton}
+          onPress={handleStyleChange}
+          accessibilityLabel="Change map style"
+        >
+          <MaterialIcons name="layers" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

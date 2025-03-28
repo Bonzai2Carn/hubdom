@@ -1,12 +1,11 @@
 // src/screens/home/MapScreen.tsx
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Image,
   Platform,
   StatusBar,
   Animated,
@@ -33,13 +32,12 @@ import BottomNavigation from "../../components/navigations/BottomNavigation";
 import { useLocation } from "../../hooks/useLocation";
 
 // Types & Constants
-import { MapMarker, MapViewStyleType, MAP_STYLE_URLS } from "../../types/map";
-
-const { width, height } = Dimensions.get("window");
+import { MapMarker, MapStyleType, MAP_STYLE_URLS } from "../../types/map";
 
 const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   // Refs
   const bannerFadeAnim = React.useRef(new Animated.Value(0)).current;
+  const mapViewRef = useRef(null);
   
   // Get location data with custom hook
   const {
@@ -60,7 +58,9 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [isBannerVisible, setIsBannerVisible] = useState<boolean>(true);
   const [isScreenReaderEnabled, setIsScreenReaderEnabled] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('map');
-  const [mapStyle, setMapStyle] = useState<MapViewStyleType>('standard');
+  const [mapStyle, setMapStyle] = useState<MapStyleType>('standard');
+  const [filteredMarkers, setFilteredMarkers] = useState<MapMarker[]>([]);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
 
   // Check for screen reader
   useEffect(() => {
@@ -84,6 +84,7 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   
   // Fetch markers from API
   const fetchMarkers = useCallback(async () => {
+    setIsSearching(true);
     try {
       // In a real app, this would be an API call
       // For now, using mock data
@@ -121,9 +122,32 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           createdAt: new Date().toISOString(),
           createdBy: "User789",
         },
+        {
+          id: "4",
+          latitude: location ? location.coords.latitude - 0.001 : 40.710776,
+          longitude: location ? location.coords.longitude + 0.003 : -74.002974,
+          title: "Hiking Group",
+          description: "Weekly hiking group for all experience levels",
+          type: "event",
+          subType: "thread",
+          createdAt: new Date().toISOString(),
+          createdBy: "User101",
+        },
+        {
+          id: "5",
+          latitude: location ? location.coords.latitude + 0.003 : 40.714776,
+          longitude: location ? location.coords.longitude - 0.002 : -74.001974,
+          title: "Book Club Meeting",
+          description: "Discussing 'The Great Gatsby' this week",
+          type: "event",
+          subType: "thread",
+          createdAt: new Date().toISOString(),
+          createdBy: "User202",
+        },
       ];
       
       setMarkers(mockMarkers);
+      setFilteredMarkers(mockMarkers);
     } catch (error) {
       console.error('Error fetching markers:', error);
       Alert.alert(
@@ -131,6 +155,8 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         'Failed to load events around you. Please try again.',
         [{ text: 'OK', onPress: () => console.log('OK Pressed') }]
       );
+    } finally {
+      setIsSearching(false);
     }
   }, [location]);
 
@@ -160,17 +186,46 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     }, [fetchMarkers, bannerFadeAnim])
   );
 
+  // Filter markers based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredMarkers(markers);
+      return;
+    }
+    
+    const filtered = markers.filter(marker => 
+      marker.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      marker.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    setFilteredMarkers(filtered);
+  }, [markers, searchQuery]);
+
   // Handler: When a marker is pressed, set it as selected
   const handleMarkerPress = useCallback((marker: MapMarker) => {
     setSelectedMarker(marker);
   }, []);
 
-  const isMountedRef = React.useRef(true); //created this to handle the unmounted event handlers
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false; 
+  // Handler: When location from search is selected
+  const handleLocationSelect = useCallback((locationData: {
+    latitude: number;
+    longitude: number;
+    description: string;
+  }) => {
+    // Navigate map to the selected location
+    if (mapViewRef.current) {
+      // This would call a method on the MapViewComponent to fly to the location
+      // For now, we'll just log it
+      console.log('Flying to location:', locationData);
+      
+      // Clear search query after selection
+      setSearchQuery('');
     }
+  }, []);
+
+  // Handler: When search is performed on markers
+  const handleSearchMarkers = useCallback((query: string) => {
+    setSearchQuery(query);
   }, []);
 
   // Handler: When create content button is pressed
@@ -189,35 +244,43 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   }, [navigation]);
 
   // Handler: Cycle through map styles
-  // const handleMapStyleChange = useCallback(() => {
-  //   setMapStyle((currentStyle) => {
-  //     switch (currentStyle) {
-  //       case 'standard':
-  //         return 'satellite';
-  //       case 'satellite':
-  //         return 'terrain';
-  //       case 'terrain':
-  //         return 'standard';
-  //     }
-  //   });
-  // }, []);
+  const handleMapStyleChange = useCallback(() => {
+    setMapStyle((currentStyle) => {
+      switch (currentStyle) {
+        case 'standard':
+          return 'satellite';
+        case 'satellite':
+          return 'terrain';
+        case 'terrain':
+          return 'standard';
+      }
+    });
+  }, []);
 
   // Handle event creation (adds a new marker)
   const handleEventCreated = useCallback((eventData: any) => {
     if (location) {
       const newMarker: MapMarker = {
         id: Date.now().toString(),
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
+        latitude: eventData.location.coordinates[1], // GeoJSON format is [longitude, latitude]
+        longitude: eventData.location.coordinates[0],
         title: eventData.title,
         description: eventData.description,
         type: 'event',
         subType: 'thread',
-        createdAt: new Date().toISOString(),
+        createdAt: eventData.startDate,
         createdBy: 'CurrentUser',
       };
-      setMarkers((prevMarkers) => [...prevMarkers, newMarker]);
+      
+      setMarkers((prevMarkers) => {
+        const updatedMarkers = [...prevMarkers, newMarker];
+        setFilteredMarkers(updatedMarkers);
+        return updatedMarkers;
+      });
+      
       setIsCreateModalOpen(false);
+      
+      // Alert success
       Alert.alert(
         'Success',
         'Your event has been created and is now visible on the map!',
@@ -263,12 +326,14 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       {/* Map View */}
       <View style={styles.mapContainer}>
         <MapViewComponent
+          ref={mapViewRef}
           initialViewState={initialViewState}
-          markers={markers}
+          markers={filteredMarkers}
           userLocation={userLocationForMap}
           mapStyle={MAP_STYLE_URLS[mapStyle]}
           onMarkerPress={handleMarkerPress}
           selectedMarker={selectedMarker}
+          onStyleChange={handleMapStyleChange}
         />
       </View>
       
@@ -277,15 +342,6 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         onProfilePress={() => setIsProfileOpen(true)}
         onNotificationsPress={() => setIsNotificationOpen(true)}
       />
-
-      {/* Map style toggle button */}
-      {/* <TouchableOpacity
-        style={styles.mapStyleButton}
-        onPress={handleMapStyleChange}
-        accessibilityLabel="Change map style"
-      >
-        <MaterialIcons name="layers" size={24} color="#FFFFFF" />
-      </TouchableOpacity> */}
 
       {/* Banner (for announcements) */}
       {isBannerVisible && (
@@ -318,6 +374,9 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onCreateContent={handleCreateContentPress}
+        onLocationSelect={handleLocationSelect}
+        onSearchMarkers={handleSearchMarkers}
+        markers={markers}
       />
 
       {/* Bottom Navigation */}
@@ -369,23 +428,6 @@ const styles = StyleSheet.create({
   mapContainer: {
     ...StyleSheet.absoluteFillObject,
   },
-  // mapStyleButton: {
-  //   position: 'absolute',
-  //   top: Platform.OS === 'ios' ? 140 : 120,
-  //   right: 20,
-  //   width: 40,
-  //   height: 40,
-  //   backgroundColor: 'rgba(42, 42, 54, 0.8)',
-  //   borderRadius: 20,
-  //   justifyContent: 'center',
-  //   alignItems: 'center',
-  //   zIndex: 1,
-  //   shadowColor: '#000',
-  //   shadowOffset: { width: 0, height: 2 },
-  //   shadowOpacity: 0.3,
-  //   shadowRadius: 3,
-  //   elevation: 5,
-  // },
 });
 
 export default MapScreen;

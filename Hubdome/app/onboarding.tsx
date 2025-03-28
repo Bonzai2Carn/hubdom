@@ -2,6 +2,7 @@ import React from 'react';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import OnboardingScreen from '../src/screens/onboarding/OnboardingScreen';
+import { Alert } from 'react-native';
 
 export default function Onboarding() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function Onboarding() {
       router.replace('./home/map');
     } catch (error) {
       console.error('Error completing onboarding:', error);
+      Alert.alert ('Error', 'Failed to complete onboarding. Please try again.');
     }
   };
 

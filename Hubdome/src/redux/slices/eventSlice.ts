@@ -8,7 +8,7 @@ export interface Event {
   title: string;
   description: string;
   category: string;
-  eventType: "public" | "private" | "paid";
+  eventType: "solo" | "private" | "public";
   days: number[];
   time: string;
   participants: string[];

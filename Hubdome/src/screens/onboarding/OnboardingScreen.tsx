@@ -8,16 +8,20 @@ import {
   SafeAreaView,
   Dimensions,
   Platform,
-  StatusBar
+  StatusBar,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Button, Surface } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useAppDispatch } from "../../redux/hooks";
+import { joinHobby } from "../../redux/actions/hobbyActions";
 
 // Activity category interface
 interface ActivitySubcategory {
   name: string;
   venues: string;
+  popularity?: number; // Add popularity field
 }
 
 interface ActivityCategory {
@@ -39,8 +43,12 @@ const { width } = Dimensions.get('window');
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onComplete }) => {
   // State to track selected activities
   const [selectedActivities, setSelectedActivities] = useState<Record<number, string[]>>({});
+  // Loading state for button
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Hard-coded activity categories (same as the provided React code)
+  const dispatch = useAppDispatch();
+
+  // Hard-coded activity categories with popularity data
   const activityCategories: ActivityCategory[] = [
     {
       id: 1,
@@ -48,16 +56,16 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onCompl
       icon: "fitness-center",
       color: "blue",
       subcategories: [
-        { name: "Running", venues: "Parks, streets, trails" },
-        { name: "Cycling", venues: "Roads, trails, velodromes" },
-        { name: "Swimming", venues: "Pools, beaches, lakes" },
-        { name: "Basketball", venues: "Courts, recreation centers" },
-        { name: "Soccer", venues: "Fields, indoor arenas" },
-        { name: "Tennis", venues: "Courts, sports clubs" },
-        { name: "Yoga", venues: "Studios, parks, home" },
-        { name: "Weightlifting", venues: "Gyms, home setup" },
-        { name: "Rock Climbing", venues: "Climbing gyms, outdoor cliffs" },
-        { name: "Skateboarding", venues: "Skate parks, streets" },
+        { name: "Running", venues: "Parks, streets, trails", popularity: 285 },
+        { name: "Cycling", venues: "Roads, trails, velodromes", popularity: 194 },
+        { name: "Swimming", venues: "Pools, beaches, lakes", popularity: 165 },
+        { name: "Basketball", venues: "Courts, recreation centers", popularity: 248 },
+        { name: "Soccer", venues: "Fields, indoor arenas", popularity: 312 },
+        { name: "Tennis", venues: "Courts, sports clubs", popularity: 142 },
+        { name: "Yoga", venues: "Studios, parks, home", popularity: 287 },
+        { name: "Weightlifting", venues: "Gyms, home setup", popularity: 176 },
+        { name: "Rock Climbing", venues: "Climbing gyms, outdoor cliffs", popularity: 127 },
+        { name: "Skateboarding", venues: "Skate parks, streets", popularity: 142 },
       ],
     },
     {
@@ -66,13 +74,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onCompl
       icon: "brush",
       color: "purple",
       subcategories: [
-        { name: "Drawing", venues: "Studios, home, classes" },
-        { name: "Painting", venues: "Art studios, outdoor locations" },
-        { name: "Sculpting", venues: "Workshops, art centers" },
-        { name: "Photography", venues: "Indoor/outdoor locations" },
-        { name: "Digital Art", venues: "Home studio, tech spaces" },
-        { name: "Printmaking", venues: "Print studios, workshops" },
-        { name: "Calligraphy", venues: "Home, workshops" },
+        { name: "Drawing", venues: "Studios, home, classes", popularity: 213 },
+        { name: "Painting", venues: "Art studios, outdoor locations", popularity: 195 },
+        { name: "Sculpting", venues: "Workshops, art centers", popularity: 97 },
+        { name: "Photography", venues: "Indoor/outdoor locations", popularity: 276 },
+        { name: "Digital Art", venues: "Home studio, tech spaces", popularity: 189 },
+        { name: "Printmaking", venues: "Print studios, workshops", popularity: 76 },
+        { name: "Calligraphy", venues: "Home, workshops", popularity: 104 },
       ],
     },
     {
@@ -81,13 +89,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onCompl
       icon: "laptop",
       color: "green",
       subcategories: [
-        { name: "Programming", venues: "Home office, co-working spaces" },
-        { name: "Gaming", venues: "Home, gaming centers" },
-        { name: "3D Printing", venues: "Maker spaces, home workshop" },
-        { name: "AI/ML", venues: "Online platforms, tech labs" },
-        { name: "Robotics", venues: "Labs, workshops" },
-        { name: "Web Design", venues: "Home office, studios" },
-        { name: "Mobile Apps", venues: "Tech hubs, home office" },
+        { name: "Programming", venues: "Home office, co-working spaces", popularity: 243 },
+        { name: "Gaming", venues: "Home, gaming centers", popularity: 325 },
+        { name: "3D Printing", venues: "Maker spaces, home workshop", popularity: 132 },
+        { name: "AI/ML", venues: "Online platforms, tech labs", popularity: 186 },
+        { name: "Robotics", venues: "Labs, workshops", popularity: 146 },
+        { name: "Web Design", venues: "Home office, studios", popularity: 171 },
+        { name: "Mobile Apps", venues: "Tech hubs, home office", popularity: 153 },
       ],
     },
     {
@@ -96,13 +104,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onCompl
       icon: "terrain",
       color: "yellow",
       subcategories: [
-        { name: "Hiking", venues: "Trails, mountains, parks" },
-        { name: "Camping", venues: "Campgrounds, wilderness areas" },
-        { name: "Fishing", venues: "Lakes, rivers, ocean" },
-        { name: "Gardening", venues: "Home garden, community plots" },
-        { name: "Bird Watching", venues: "Parks, nature reserves" },
-        { name: "Kayaking", venues: "Lakes, rivers, ocean" },
-        { name: "Mountain Biking", venues: "Trails, bike parks" },
+        { name: "Hiking", venues: "Trails, mountains, parks", popularity: 265 },
+        { name: "Camping", venues: "Campgrounds, wilderness areas", popularity: 178 },
+        { name: "Fishing", venues: "Lakes, rivers, ocean", popularity: 134 },
+        { name: "Gardening", venues: "Home garden, community plots", popularity: 217 },
+        { name: "Bird Watching", venues: "Parks, nature reserves", popularity: 86 },
+        { name: "Kayaking", venues: "Lakes, rivers, ocean", popularity: 112 },
+        { name: "Mountain Biking", venues: "Trails, bike parks", popularity: 143 },
       ],
     },
     {
@@ -111,13 +119,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onCompl
       icon: "restaurant",
       color: "red",
       subcategories: [
-        { name: "Baking", venues: "Home kitchen, bakeries" },
-        { name: "Grilling", venues: "Backyard, parks" },
-        { name: "Wine Tasting", venues: "Wineries, tasting rooms" },
-        { name: "Meal Prep", venues: "Home kitchen, cooking schools" },
-        { name: "International Cuisine", venues: "Kitchen, cooking classes" },
-        { name: "Coffee Brewing", venues: "Home, coffee shops" },
-        { name: "Food Photography", venues: "Studio, restaurants" },
+        { name: "Baking", venues: "Home kitchen, bakeries", popularity: 254 },
+        { name: "Grilling", venues: "Backyard, parks", popularity: 187 },
+        { name: "Wine Tasting", venues: "Wineries, tasting rooms", popularity: 163 },
+        { name: "Meal Prep", venues: "Home kitchen, cooking schools", popularity: 211 },
+        { name: "International Cuisine", venues: "Kitchen, cooking classes", popularity: 178 },
+        { name: "Coffee Brewing", venues: "Home, coffee shops", popularity: 194 },
+        { name: "Food Photography", venues: "Studio, restaurants", popularity: 113 },
       ],
     },
   ];
@@ -129,30 +137,64 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onCompl
       const newSubs = currentSubs.includes(subcategory)
         ? currentSubs.filter(sub => sub !== subcategory)
         : [...currentSubs, subcategory];
-
+  
       const updated = {
         ...prev,
         [categoryId]: newSubs.length > 0 ? newSubs : []
       };
-
+  
       // Remove empty arrays
       if (newSubs.length === 0) {
         delete updated[categoryId];
       }
-
+  
       return updated;
     });
   }, []);
-
+  
   // Check if any activities are selected
   const hasSelections = Object.values(selectedActivities).some(
     subs => subs?.length > 0
   );
 
   // Handle continue button press
-  const handleContinue = () => {
-    if (hasSelections) {
+  const handleContinue = async () => {
+    if (!hasSelections) return;
+    
+    try {
+      // Show loading indicator
+      setIsSubmitting(true);
+      
+      // Prepare an array of promises for joining hobbies
+      const promises: Promise<any>[] = [];
+      
+      // For each selected activity, create a promise to join the hobby
+      Object.entries(selectedActivities).forEach(([categoryId, subcategories]) => {
+        subcategories.forEach(subcategory => {
+          // Create a hobby ID from category and subcategory name
+          // In a real app, this would be an actual ID from your API
+          const hobbyId = `${categoryId}-${subcategory.toLowerCase().replace(/\s+/g, '-')}`;
+          
+          // Add the promise to join this hobby
+          promises.push(dispatch(joinHobby(hobbyId)));
+        });
+      });
+      
+      // Wait for all hobby join operations to complete
+      await Promise.all(promises);
+      
+      // Call the completion callback
       onComplete(selectedActivities);
+    } catch (error) {
+      console.error("Error saving hobby selections:", error);
+      // Show error message
+      Alert.alert(
+        "Error", 
+        "Failed to save your hobby preferences. Please try again."
+      );
+    } finally {
+      // Reset loading state regardless of outcome
+      setIsSubmitting(false);
     }
   };
 
@@ -175,7 +217,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onCompl
   const ActivityCard = memo(({ category }: { category: ActivityCategory }) => {
     const isSelected = selectedActivities[category.id]?.length > 0;
     const colorStyles = getColorStyles(category.color, isSelected);
-
+    
     return (
       <View style={styles.categoryContainer}>
         <Surface
@@ -236,6 +278,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onCompl
                 {sub.name}
               </Text>
               <Text style={styles.venuesText}>{sub.venues}</Text>
+              
+              {/* Popularity indicator */}
+              <View style={styles.popularityContainer}>
+                <MaterialIcons name="people" size={12} color="rgba(255,255,255,0.5)" />
+                <Text style={styles.popularityText}>
+                  {sub.popularity || Math.floor(Math.random() * 300) + 50} members
+                </Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -267,12 +317,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onCompl
       <View style={styles.footer}>
         <Button
           mode="contained"
-          disabled={!hasSelections}
+          disabled={!hasSelections || isSubmitting}
           onPress={handleContinue}
           style={styles.continueButton}
           contentStyle={styles.buttonContent}
+          loading={isSubmitting}
         >
-          {hasSelections ? "Continue" : "Select at least one activity"}
+          {isSubmitting ? "Saving..." : 
+            hasSelections ? "Continue" : "Select at least one activity"}
         </Button>
       </View>
     </SafeAreaView>
@@ -356,6 +408,17 @@ const styles = StyleSheet.create({
   venuesText: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.5)',
+    marginBottom: 6,
+  },
+  popularityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  popularityText: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.5)',
+    marginLeft: 4,
   },
   footer: {
     position: 'absolute',

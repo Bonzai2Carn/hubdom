@@ -1,193 +1,476 @@
-import React, { useState, useCallback, useMemo } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  TextInput,
-  SafeAreaView, 
+// src/screens/events/EventsScreen.tsx
+
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Text,
+  SafeAreaView,
+  ActivityIndicator,
   StatusBar,
-  KeyboardAvoidingView,
-  Platform 
+  ScrollView,
 } from "react-native";
-// import { useNavigation } from "@react-navigation/native";
-import { useRouter } from "expo-router";
+import { Appbar, FAB, Chip, Divider } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useSelector, useDispatch } from "react-redux";
+import { useNavigation } from "@react-navigation/native";
+import { useAppSelector, useAppDispatch } from "../../redux/hooks";
 
-// Components
-import DaySelector from "../../components/events/DaySelector";
-import ParticipantSelector from "../../components/events/ParticipantSelector";
-import CategorySelector from "../../components/events/CategorySelector";
-import EventTypeToggle from "../../components/events/EventTypeToggle";
-import TimeSelector from "../../components/events/TimeSelector";
+// Import actions
+import { 
+  getUserEvents, 
+  getAllEvents, 
+  joinEvent, 
+  leaveEvent 
+} from "../../redux/actions/eventActions";
 
-import {EventData} from "../../types/events";
-// Redux
-import { createEvent } from "../../redux/actions/eventActions";
-import { RootState, AppDispatch } from "../../redux/store";
+// Import components
+import EventCard from "../../components/events/EventCard";
+import EventSearchBar from "../../components/events/EventSearchBar";
+import CreateEventModal from "../../components/events/CreateEventModal";
+import AnalyticsCard from "../../components/events/AnalyticsCard";
+import EmptyState from "./EmptyState";
+
+// Tab types
+type EventTab = "myEvents" | "joined" | "wishlist" | "analytics";
 
 const EventsScreen = () => {
-  // const navigation = useNavigation();
-  const router = useRouter();
-  const dispatch = useDispatch<AppDispatch>();
+  // Navigation
+  const navigation = useNavigation();
+  const dispatch = useAppDispatch();
   
-  // Form states
-  const [projectName, setProjectName] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [description, setDescription] = useState("");
-  const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [eventType, setEventType] = useState<"public" | "private" | "paid">("public");
-  const [selectedTime, setSelectedTime] = useState<Date>(new Date());
-  const [participants, setParticipants] = useState<string[]>([]);
+  // State
+  const [activeTab, setActiveTab] = useState<EventTab>("myEvents");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
   
-  // Handling day selection
-  const toggleDay = useCallback((day: number) => {
-    setSelectedDays(prev => 
-      prev.includes(day) 
-        ? prev.filter(d => d !== day) 
-        : [...prev, day]
-    );
+  // Get events from redux store
+  const { 
+    events, 
+    userEvents, 
+    loading,
+    error 
+  } = useAppSelector((state) => state.event);
+  
+  // Mock wishlist events for now
+  const [wishlistEvents, setWishlistEvents] = useState([]);
+  
+  // Colors
+  const colors = {
+    primary: "#3498DB", 
+    accent: "#FF7F50", 
+    background: "#1E1E2A", 
+    surface: "#2A2A36", 
+    text: "#FFFFFF", 
+    textSecondary: "rgba(255,255,255,0.7)",
+  };
+  
+  // Event types for filtering
+  const eventTypes = [
+    { id: "1", name: "Photography", color: "#F97316" },
+    { id: "2", name: "Hiking", color: "#3B82F6" },
+    { id: "3", name: "Cooking", color: "#EF4444" },
+    { id: "4", name: "Gaming", color: "#8B5CF6" },
+    { id: "5", name: "Music", color: "#EC4899" },
+  ];
+  
+  // Load data when component mounts
+  useEffect(() => {
+    loadEvents();
   }, []);
   
-  // Handle participant selection
-  const addParticipant = useCallback((id: string) => {
-    setParticipants(prev => [...prev, id]);
+  // Load events based on active tab
+  const loadEvents = useCallback(async () => {
+    try {
+      if (activeTab === "myEvents" || activeTab === "joined") {
+        await dispatch(getUserEvents());
+      } else if (activeTab === "wishlist") {
+        // In future: implement wishlist events fetch
+      }
+    } catch (error) {
+      console.error("Error loading events:", error);
+    }
+  }, [activeTab, dispatch]);
+  
+  // Create a new event
+  const handleCreateEvent = useCallback((eventData) => {
+    // Display success message
+    console.log("Creating event with data:", eventData);
+    // Close modal and refresh events
+    setIsCreateModalVisible(false);
+    loadEvents();
+  }, [loadEvents]);
+  
+  // Toggle event attendance
+  const handleToggleAttendance = useCallback((eventId) => {
+    const event = events.find(e => e.id === eventId);
+    if (event) {
+      if (event.isUserAttending) {
+        dispatch(leaveEvent(eventId));
+      } else {
+        dispatch(joinEvent(eventId));
+      }
+    }
+  }, [events, dispatch]);
+  
+  // View event details
+  const handleViewEventDetails = useCallback((eventId) => {
+    navigation.navigate("EventDetail", { eventId });
+  }, [navigation]);
+  
+  // Clear search and filters
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery("");
+    setSelectedEventType(null);
   }, []);
   
-  const removeParticipant = useCallback((id: string) => {
-    setParticipants(prev => prev.filter(p => p !== id));
-  }, []);
-  
-  // Handle create task
-  const handleCreateTask = useCallback(() => {
-    if (!projectName || !selectedCategory) {
-      // Show validation error
-      return;
+  // Filter events based on search query and selected type
+  const getFilteredEvents = useCallback(() => {
+    let filteredList = [];
+    
+    // Select events based on active tab
+    if (activeTab === "myEvents") {
+      // Show events created by the user
+      filteredList = userEvents.filter(event => event.isUserOrganizer);
+    } else if (activeTab === "joined") {
+      // Show events the user is attending but didn't create
+      filteredList = userEvents.filter(event => 
+        event.isUserAttending && !event.isUserOrganizer
+      );
+    } else if (activeTab === "wishlist") {
+      // Show wishlist events
+      filteredList = wishlistEvents;
     }
     
-    const newEvent = {
-      title: projectName,
-      description,
-      category: selectedCategory,
-      eventType,
-      days: selectedDays,
-      time: selectedTime.toISOString(),
-      participants
+    // Apply search filter
+    if (searchQuery) {
+      const lowerCaseQuery = searchQuery.toLowerCase();
+      filteredList = filteredList.filter(event =>
+        event.title.toLowerCase().includes(lowerCaseQuery) ||
+        event.description.toLowerCase().includes(lowerCaseQuery) ||
+        event.location.toLowerCase().includes(lowerCaseQuery)
+      );
+    }
+    
+    // Apply event type filter
+    if (selectedEventType) {
+      filteredList = filteredList.filter(event => 
+        event.eventType === selectedEventType
+      );
+    }
+    
+    return filteredList;
+  }, [
+    activeTab, 
+    userEvents, 
+    wishlistEvents, 
+    searchQuery, 
+    selectedEventType
+  ], []);
+  
+  // Render analytics tab content
+  const renderAnalyticsTab = () => {
+    // Sample analytics data - in a real app, calculate from real events
+    const analyticsData = {
+      totalEventsCreated: userEvents.filter(e => e.isUserOrganizer).length,
+      totalEventsJoined: userEvents.filter(e => e.isUserAttending && !e.isUserOrganizer).length,
+      mostActiveCategory: "Photography",
+      upcomingEvents: userEvents.filter(e => new Date(e.date) > new Date()).length,
+      participationRate: 78, // Percentage
+      averageAttendees: 12,
     };
     
-    dispatch(createEvent(newEvent as EventData));
+    return (
+      <View style={styles.analyticsContainer}>
+        <Text style={styles.analyticsTitle}>Your Event Participation</Text>
+        
+        <View style={styles.analyticsRow}>
+          <AnalyticsCard 
+            title="Created"
+            value={analyticsData.totalEventsCreated.toString()}
+            icon="add-circle"
+            color="#3498DB"
+          />
+          <AnalyticsCard 
+            title="Joined"
+            value={analyticsData.totalEventsJoined.toString()}
+            icon="groups"
+            color="#FF7F50"
+          />
+        </View>
+        
+        <View style={styles.analyticsRow}>
+          <AnalyticsCard 
+            title="Upcoming"
+            value={analyticsData.upcomingEvents.toString()}
+            icon="event"
+            color="#2ECC71"
+          />
+          <AnalyticsCard 
+            title="Avg. Attendees"
+            value={analyticsData.averageAttendees.toString()}
+            icon="people"
+            color="#9B59B6"
+          />
+        </View>
+        
+        <View style={styles.participationCard}>
+          <Text style={styles.participationTitle}>Participation Rate</Text>
+          <View style={styles.progressBarContainer}>
+            <View
+              style={[
+                styles.progressBar,
+                { width: `${analyticsData.participationRate}%` }
+              ]}
+            />
+          </View>
+          <Text style={styles.participationText}>
+            {analyticsData.participationRate}% of events you RSVP'd to
+          </Text>
+        </View>
+        
+        <View style={styles.categoryCard}>
+          <Text style={styles.categoryTitle}>Most Active Category</Text>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryText}>
+              {analyticsData.mostActiveCategory}
+            </Text>
+          </View>
+          <Text style={styles.categorySubtext}>
+            You're most active in this category
+          </Text>
+        </View>
+      </View>
+    );
+  };
+  
+  // Determine which content to show based on active tab
+  const renderTabContent = () => {
+    if (activeTab === "analytics") {
+      return renderAnalyticsTab();
+    }
     
-    // Reset form or navigate
-    setProjectName("");
-    setSelectedCategory("");
-    setDescription("");
-    setSelectedDays([]);
-    setEventType("public");
-    setSelectedTime(new Date());
-    setParticipants([]);
-  }, [
-    projectName,
-    description,
-    selectedCategory,
-    eventType,
-    selectedDays,
-    selectedTime,
-    participants,
-    dispatch
-  ]);
+    // Get filtered events for the current tab
+    const filteredEvents = getFilteredEvents();
+    
+    // Show loading indicator if loading
+    if (loading) {
+      return (
+        <View style={styles.centeredContent}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.text, marginTop: 16 }}>
+            Loading events...
+          </Text>
+        </View>
+      );
+    }
+    
+    // Show error message if there's an error
+    if (error) {
+      return (
+        <View style={styles.centeredContent}>
+          <MaterialIcons name="error" size={48} color="#E74C3C" />
+          <Text style={{ color: colors.text, marginTop: 16 }}>
+            Error loading events. Please try again.
+          </Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={loadEvents}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    // Show events list or empty state
+    return (
+      <FlatList
+        data={filteredEvents}
+        renderItem={({ item }) => (
+          <EventCard
+            item={item}
+            onToggleAttendance={handleToggleAttendance}
+            onPress={handleViewEventDetails}
+          />
+        )}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={
+          filteredEvents.length === 0
+            ? styles.centeredListContent
+            : styles.listContent
+        }
+        ListEmptyComponent={
+          <EmptyState
+            searchQuery={searchQuery}
+            selectedEventType={selectedEventType}
+            onClearFilters={handleClearFilters}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      />
+    );
+  };
   
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#3498DB" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
       
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Hobby Event</Text>
-        <TouchableOpacity style={styles.headerButton}>
-          <Text style={styles.headerButtonText}>Host your Hobby</Text>
+      <Appbar.Header style={{ backgroundColor: colors.surface }}>
+        <Appbar.Content title="Events" color={colors.text} />
+        {activeTab !== "analytics" && (
+          <>
+            <Appbar.Action 
+              icon="filter" 
+              color={colors.text} 
+              onPress={() => {}} 
+            />
+            <Appbar.Action 
+              icon="sort" 
+              color={colors.text} 
+              onPress={() => {}} 
+            />
+          </>
+        )}
+      </Appbar.Header>
+      
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "myEvents" && styles.activeTab]}
+          onPress={() => setActiveTab("myEvents")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "myEvents" && styles.activeTabText,
+            ]}
+          >
+            My Events
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "joined" && styles.activeTab]}
+          onPress={() => setActiveTab("joined")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "joined" && styles.activeTabText,
+            ]}
+          >
+            Joined
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "wishlist" && styles.activeTab]}
+          onPress={() => setActiveTab("wishlist")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "wishlist" && styles.activeTabText,
+            ]}
+          >
+            Wishlist
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "analytics" && styles.activeTab]}
+          onPress={() => setActiveTab("analytics")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "analytics" && styles.activeTabText,
+            ]}
+          >
+            Analytics
+          </Text>
         </TouchableOpacity>
       </View>
       
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.formContainer}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Day selector */}
-          <DaySelector selectedDays={selectedDays} onToggleDay={toggleDay} />
-          
-          {/* Form fields */}
-          <View style={styles.formSection}>
-            <Text style={styles.sectionLabel}>Title</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Project Name"
-              placeholderTextColor="#8A8A8A"
-              value={projectName}
-              onChangeText={setProjectName}
+      {/* Search Bar and Filters (not shown in Analytics tab) */}
+      {activeTab !== "analytics" && (
+        <>
+          <View style={styles.searchContainer}>
+            <EventSearchBar
+              searchQuery={searchQuery}
+              onChangeText={setSearchQuery}
             />
           </View>
           
-          <View style={styles.formSection}>
-            <Text style={styles.sectionLabel}>Select Category</Text>
-            <CategorySelector
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-            />
-          </View>
-          
-          <View style={styles.formSection}>
-            <Text style={styles.sectionLabel}>Event Type</Text>
-            <EventTypeToggle
-              selectedType={eventType}
-              onSelectType={setEventType}
-            />
-          </View>
-          
-          <View style={styles.formSection}>
-            <Text style={styles.sectionLabel}>Time</Text>
-            <TimeSelector
-              selectedTime={selectedTime}
-              onSelectTime={setSelectedTime}
-            />
-          </View>
-          
-          <View style={styles.formSection}>
-            <Text style={styles.sectionLabel}>Add Description</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore magna aliqua."
-              placeholderTextColor="#8A8A8A"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-          
-          <View style={styles.formSection}>
-            <Text style={styles.sectionLabel}>Add Participant</Text>
-            <ParticipantSelector
-              participants={participants}
-              onAddParticipant={addParticipant}
-              onRemoveParticipant={removeParticipant}
-            />
-          </View>
-          
-          {/* Create button */}
-          <TouchableOpacity 
-            style={styles.createButton}
-            onPress={handleCreateTask}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterContainer}
           >
-            <Text style={styles.createButtonText}>Create New Event</Text>
-            <View style={styles.arrowContainer}>
-              <MaterialIcons name="arrow-forward" size={24} color="#FFF" />
-            </View>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <Chip
+              selected={selectedEventType === null}
+              onPress={() => setSelectedEventType(null)}
+              style={[
+                styles.filterChip,
+                selectedEventType === null && styles.selectedFilterChip,
+              ]}
+              textStyle={{
+                color: selectedEventType === null ? "white" : colors.textSecondary,
+              }}
+            >
+              All
+            </Chip>
+            
+            {eventTypes.map((type) => (
+              <Chip
+                key={type.id}
+                selected={selectedEventType === type.name}
+                onPress={() => setSelectedEventType(type.name)}
+                style={[
+                  styles.filterChip,
+                  selectedEventType === type.name && {
+                    backgroundColor: type.color,
+                  },
+                ]}
+                textStyle={{
+                  color:
+                    selectedEventType === type.name
+                      ? "white"
+                      : colors.textSecondary,
+                }}
+              >
+                {type.name}
+              </Chip>
+            ))}
+          </ScrollView>
+          
+          <Divider style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }} />
+        </>
+      )}
+      
+      {/* Tab Content */}
+      <View style={styles.contentContainer}>
+        {renderTabContent()}
+      </View>
+      
+      {/* Create Event FAB */}
+      <FAB
+        style={[styles.fab, { backgroundColor: colors.accent }]}
+        icon="plus"
+        onPress={() => setIsCreateModalVisible(true)}
+        color="white"
+      />
+      
+      {/* Create Event Modal */}
+      <CreateEventModal
+        isVisible={isCreateModalVisible}
+        onClose={() => setIsCreateModalVisible(false)}
+        onSubmit={handleCreateEvent}
+      />
     </SafeAreaView>
   );
 };
@@ -195,78 +478,145 @@ const EventsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F8FF",
   },
-  header: {
+  tabContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#3498DB",
+    backgroundColor: "#2A2A36",
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#FFF",
-  },
-  headerButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  headerButtonText: {
-    color: "#FFF",
-    fontWeight: "500",
-  },
-  formContainer: {
+  tab: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  formSection: {
-    marginBottom: 16,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: "#F0F0FF",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: "#333",
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
-  createButton: {
-    backgroundColor: "#8A56AC",
-    borderRadius: 28,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    paddingVertical: 12,
     alignItems: "center",
-    marginTop: 16,
   },
-  createButtonText: {
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: "#3498DB",
+  },
+  tabText: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 14,
+  },
+  activeTabText: {
     color: "#FFFFFF",
-    fontSize: 16,
     fontWeight: "bold",
   },
-  arrowContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 50,
-    width: 36,
-    height: 36,
+  searchContainer: {
+    padding: 16,
+  },
+  filterContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  filterChip: {
+    marginRight: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.07)",
+  },
+  selectedFilterChip: {
+    backgroundColor: "#3498DB",
+  },
+  contentContainer: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 80,
+  },
+  centeredListContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: 16,
+  },
+  centeredContent: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#3498DB",
+    borderRadius: 4,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
+  fab: {
+    position: "absolute",
+    margin: 16,
+    right: 0,
+    bottom: 0,
+  },
+  // Analytics styles
+  analyticsContainer: {
+    padding: 16,
+  },
+  analyticsTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    marginBottom: 16,
+  },
+  analyticsRow: {
+    flexDirection: "row",
+    marginBottom: 16,
+  },
+  participationCard: {
+    backgroundColor: "#2A2A36",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+  },
+  participationTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    marginBottom: 12,
+  },
+  progressBarContainer: {
+    height: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 12,
+    backgroundColor: "#3498DB",
+    borderRadius: 6,
+  },
+  participationText: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.7)",
+  },
+  categoryCard: {
+    backgroundColor: "#2A2A36",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    marginBottom: 12,
+  },
+  categoryBadge: {
+    backgroundColor: "#F97316",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  categoryText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
+  categorySubtext: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.7)",
   },
 });
 
