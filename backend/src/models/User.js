@@ -47,6 +47,33 @@ const UserSchema = new Schema({
     type: String,
     default: "default-avatar.jpg",
   },
+  avatarType: {
+    type: String,
+    enum: [
+      'Competitor', 'Visionary', 'Maestro', 'Strategist', 'Connector', 
+      'Gourmet', 'Chef', 'Explorer', 'Scholar', 'Maker', 'Curator', 
+      'Sage', 'Tinkerer', 'Animal Advocate', 'Wanderer', 'Digital Nomad'
+    ],
+    default: 'Explorer',
+  },
+  displayName: {
+    type: String,
+    trim: true,
+  },
+  notificationPreferences: {
+    events: {
+      type: Boolean,
+      default: true
+    },
+    messages: {
+      type: Boolean,
+      default: true
+    },
+    nearbyActivities: {
+      type: Boolean,
+      default: true
+    }
+  },
   location: {
     type: {
       type: String,
@@ -61,13 +88,24 @@ const UserSchema = new Schema({
     state: String,
     zipcode: String,
     country: String,
+    createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
   },
-  hobbies: [
-    {
+  hobbies: [{
+    hobby: {
       type: Schema.Types.ObjectId,
-      ref: "Hobby",
+      ref: "Hobby"
     },
-  ],
+    proficiencyLevel: {
+      type: String,
+      enum: ["beginner", "intermediate", "advanced", "expert"],
+      default: "beginner"
+    },
+    joinedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   // Social auth fields
   googleId: String,
   facebookId: String,

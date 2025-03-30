@@ -32,7 +32,10 @@ export interface MapViewComponentHandle {
   zoomIn: () => void;
   zoomOut: () => void;
   recenter: () => void;
+  // rotateLeft: () => void;  // Add rotation methods
+  // rotateRight: () => void;
 }
+
 
 const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProps>((
   {
@@ -47,6 +50,10 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
   ref
 ) => {
   const mapRef = useRef<MapRef>(null);
+  const [viewState, setViewState] = useState({
+    pitch: 0,
+    bearing: 0,
+});
   
   // Expose methods to parent component via ref
   useImperativeHandle(ref, () => ({
@@ -131,6 +138,24 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
     }
   }, []);
 
+  // Toggle isometric projection
+  const toggleIsometricView = useCallback(() => {
+    if (mapRef.current) {
+      const map = mapRef.current.getMap();
+      const newPitch = viewState.pitch === 0 ? 60 : 0;
+      
+      map.easeTo({
+        pitch: newPitch,
+        duration: 500
+      });
+      
+      setViewState(prev => ({
+        ...prev,
+        pitch: newPitch
+      }));
+    }
+  }, [viewState.pitch]);
+
   // Handle style change
   const handleStyleChange = useCallback(() => {
     if (onStyleChange) {
@@ -169,7 +194,11 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
     <View style={styles.container}>
       <Map
         ref={mapRef}
-        initialViewState={initialViewState}
+        initialViewState={{
+          ...initialViewState,
+          pitch: viewState.pitch,
+          bearing: viewState.bearing,
+          }}
         style={styles.mapContainer}
         mapStyle={mapStyle}
         mapLib={maplibregl}
@@ -217,6 +246,18 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
           disabled={!userLocation}
         >
           <MaterialIcons name="my-location" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.mapControlButton}
+          onPress={toggleIsometricView}
+          accessibilityLabel="Toggle isometric view"
+          accessibilityHint="Switches between flat and angled perspective"
+        >
+          <MaterialIcons 
+            name={viewState.pitch > 0 ? "view-in-ar" : "3d-rotation"} 
+            size={24} 
+            color="#FFFFFF" 
+          />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.mapStyleButton}

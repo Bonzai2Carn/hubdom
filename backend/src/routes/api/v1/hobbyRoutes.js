@@ -5,6 +5,8 @@ const hobbyController = require('../../../controllers/hobbyControllers');
 const { authenticate } = require('../../../middleware/customAuthMiddleware');
 
 // Public routes
+router.get("/category/:category", hobbyController.getHobbiesByCategory);
+router.post("/publish", protect, hobbyController.publishHobby);
 router.get('/', hobbyController.getAllHobbies);
 router.get('/popular', hobbyController.getPopularHobbies);
 router.get('/nearby', hobbyController.getNearbyHobbies);

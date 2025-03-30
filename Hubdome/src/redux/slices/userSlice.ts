@@ -7,7 +7,16 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+  avatarType: string;
+  displayName?: string;
+  bio?: string;
   role?: string;
+  hobbies?: string[];
+  notificationPreferences?: {
+    events: boolean;
+    messages: boolean;
+    nearbyActivities: boolean;
+  };
 }
 
 interface UserState {
@@ -44,11 +53,19 @@ const userSlice = createSlice({
     },
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload;
+    },
+    updateUserProfile: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.userInfo) {
+        state.userInfo = {
+          ...state.userInfo,
+          ...action.payload
+        };
+      }
     }
   },
   // You can add extraReducers for async thunks later
 });
 
 // Export actions and reducer
-export const { setUser, clearUser, setLoading, setError } = userSlice.actions;
+export const { setUser, clearUser, setLoading, setError, updateUserProfile } = userSlice.actions;
 export default userSlice.reducer;

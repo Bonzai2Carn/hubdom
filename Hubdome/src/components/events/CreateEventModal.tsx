@@ -13,13 +13,17 @@ import {
   KeyboardAvoidingView,
   FlatList
 } from "react-native";
-import { TextInput, Button } from "react-native-paper";
+import { TextInput } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import DaySelector from "../../components/events/DaySelector";
+import ParticipantSelector from "../../components/events/ParticipantSelector";
+import CategorySelector from "../../components/events/CategorySelector";
+import EventTypeToggle from "../../components/events/EventTypeToggle";
+import TimeSelector from "../../components/events/TimeSelector";
+// Removed unused DateTimePicker import
 import { LocationService } from "../../services/locationService";
 
 // Location services
-const LOCATION_CACHE_KEY = 'user:last-location';
 
 interface CreateEventModalProps {
   isVisible: boolean;
@@ -43,12 +47,12 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
 }) => {
   // Form state
   const [eventName, setEventName] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [eventDescription, setEventDescription] = useState("");
-  const [eventDate, setEventDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [eventTime, setEventTime] = useState(new Date());
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [eventLocation, setEventLocation] = useState("");
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [eventType, setEventType] = useState<"solo" | "private" | "public">("public");
+  const [selectedTime, setSelectedTime] = useState<Date>(new Date());
+  const [participants, setParticipants] = useState<string[]>([]);  const [eventLocation, setEventLocation] = useState("");
   const [coordinates, setCoordinates] = useState<{ latitude: number, longitude: number } | null>(null);
   const [isGeocodingLoading, setIsGeocodingLoading] = useState(false);
   const [geocodingError, setGeocodingError] = useState<string | null>(null);
@@ -85,9 +89,12 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   
   const resetForm = () => {
     setEventName("");
+    setSelectedCategory("");
     setEventDescription("");
-    setEventDate(new Date());
-    setEventTime(new Date());
+    setSelectedDays([]);
+    setEventType("public");
+    setSelectedTime(new Date());
+    setParticipants([]);
     setEventLocation("");
     setCoordinates(null);
     setGeocodingError(null);
@@ -248,35 +255,47 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   };
 
   // Date & Time Handlers
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || eventDate;
-    setShowDatePicker(Platform.OS === 'ios');
-    setEventDate(currentDate);
-  };
+  const handleDayToggle = useCallback((day: number) => {
+    setSelectedDays(prev => 
+      prev.includes(day) 
+        ? prev.filter(d => d !== day) 
+        : [...prev, day]
+    );
+  }, []);
 
-  const onTimeChange = (event: any, selectedTime?: Date) => {
-    const currentTime = selectedTime || eventTime;
-    setShowTimePicker(Platform.OS === 'ios');
-    setEventTime(currentTime);
-  };
+  // Handle participant management
+  const handleAddParticipant = useCallback((id: string) => {
+    setParticipants(prev => [...prev, id]);
+  }, []);
+  
+  const handleRemoveParticipant = useCallback((id: string) => {
+    setParticipants(prev => prev.filter(p => p !== id));
+  }, []);
 
-  // Format date for display
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-  };
+  // -----------------------------------------
+  // const onTimeChange = (event: any, selectedTime?: Date) => {
+  //   const currentTime = selectedTime || eventTime;
+  //   setShowTimePicker(Platform.OS === 'ios');
+  //   setEventTime(currentTime);
+  // };
 
-  // Format time for display
-  const formatTime = (time: Date): string => {
-    return time.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  };
+  // // Format date for display
+  // const formatDate = (date: Date): string => {
+  //   return date.toLocaleDateString('en-US', { 
+  //     month: 'short', 
+  //     day: 'numeric', 
+  //     year: 'numeric' 
+  //   });
+  // };
+
+  // // Format time for display
+  // const formatTime = (time: Date): string => {
+  //   return time.toLocaleTimeString('en-US', { 
+  //     hour: 'numeric', 
+  //     minute: '2-digit',
+  //     hour12: true 
+  //   });
+  // };
 
   const handleSubmit = () => {
     // Validate form
@@ -285,8 +304,27 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
       return;
     }
     
+    if (!selectedCategory) {
+      Alert.alert("Error", "Please select a category");
+      return;
+    }
+
     if (!eventDescription.trim()) {
       Alert.alert("Error", "Please add a description");
+      return;
+    }
+
+    if (!eventDescription.trim()) {
+      Alert.alert("Error", "Please add a description");
+      return;
+    }
+    
+    if (selectedDays.length === 0) {
+      Alert.alert("Error", "Please select at least one day");
+      return;
+    }
+    if (!eventType) {
+      Alert.alert("Error", "Please select an event type");
       return;
     }
     
@@ -295,20 +333,23 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
       return;
     }
     
-    // Combine date and time
-    const combinedDateTime = new Date(eventDate);
-    combinedDateTime.setHours(
-      eventTime.getHours(),
-      eventTime.getMinutes(),
-      0, 0
-    );
+    // // Combine date and time
+    // const combinedDateTime = new Date(eventDate);
+    // combinedDateTime.setHours(
+    //   eventTime.getHours(),
+    //   eventTime.getMinutes(),
+    //   0, 0
+    // );
     
     // Prepare eventData with the geocoded coordinates
     const eventData = {
       title: eventName,
       description: eventDescription,
-      startDate: combinedDateTime.toISOString(),
-      endDate: new Date(combinedDateTime.getTime() + 2 * 60 * 60 * 1000).toISOString(), // Add 2 hours by default
+      category: selectedCategory,
+      eventType,
+      days: selectedDays,
+      time: selectedTime.toISOString(),
+      participants: eventType === "solo" ? [] : participants,
       location: {
         formattedAddress: eventLocation,
         coordinates: [coordinates.longitude, coordinates.latitude] // GeoJSON format
@@ -354,10 +395,19 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 value={eventName}
                 onChangeText={setEventName}
                 placeholder="Enter event name"
-                placeholderTextColor="#ffffff"
+                placeholderTextColor="#BBBBBB"
                 mode="outlined"
                 style={styles.input}
-                theme={{ colors: { text: "#FFFFFF", primary: "#3498DB" } }}
+                theme={{ colors: { primary: "#3498DB" } }}
+              />
+            </View>
+
+            {/* Category Selector */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Category</Text>
+              <CategorySelector
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
               />
             </View>
 
@@ -373,125 +423,127 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 multiline={true}
                 numberOfLines={4}
                 style={styles.input}
-                theme={{ colors: { text: "#ffffff", primary: "#3498DB" } }}
+                theme={{ colors: { primary: "#3498DB" } }}
               />
             </View>
 
-            {/* Date & Time */}
-            <View style={styles.rowContainer}>
-              <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                <Text style={styles.inputLabel}>Date</Text>
-                <TouchableOpacity 
-                  style={styles.dateTimeButton}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <MaterialIcons name="event" size={20} color="#BBBBBB" />
-                  <Text style={styles.dateTimeText}>{formatDate(eventDate)}</Text>
-                </TouchableOpacity>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={eventDate}
-                    mode="date"
-                    is24Hour={true}
-                    display="default"
-                    onChange={onDateChange}
-                    minimumDate={new Date()}
-                  />
-                )}
-              </View>
-
-              <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                <Text style={styles.inputLabel}>Time</Text>
-                <TouchableOpacity 
-                  style={styles.dateTimeButton}
-                  onPress={() => setShowTimePicker(true)}
-                >
-                  <MaterialIcons name="access-time" size={20} color="#BBBBBB" />
-                  <Text style={styles.dateTimeText}>{formatTime(eventTime)}</Text>
-                </TouchableOpacity>
-                {showTimePicker && (
-                  <DateTimePicker
-                    value={eventTime}
-                    mode="time"
-                    is24Hour={false}
-                    display="default"
-                    onChange={onTimeChange}
-                  />
-                )}
-              </View>
+            {/* Day Selector */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Select Days</Text>
+              <DaySelector
+                selectedDays={selectedDays}
+                onToggleDay={handleDayToggle}
+              />
             </View>
+
+            {/* Time Selector */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Select Time</Text>
+              <TimeSelector
+                selectedTime={selectedTime}
+                onSelectTime={setSelectedTime}
+              />
+            </View>
+
+            {/* Event Type Toggle */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Event Type</Text>
+              <EventTypeToggle
+                selectedType={eventType}
+                onSelectType={setEventType}
+              />
+            </View>
+
+            {/* Participants Selector (only if not solo) */}
+            {eventType !== "solo" && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Add Participants</Text>
+                <ParticipantSelector
+                  participants={participants}
+                  onAddParticipant={handleAddParticipant}
+                  onRemoveParticipant={handleRemoveParticipant}
+                />
+              </View>
+            )}
 
             {/* Location */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Location</Text>
               <View style={styles.locationInputContainer}>
-                <TextInput
-                  value={eventLocation}
-                  onChangeText={setEventLocation}
-                  placeholder="Enter a location or address"
-                  placeholderTextColor="#BBBBBB"
-                  mode="outlined"
-                  style={styles.input}
-                  theme={{ colors: { text: "#FFFFFF", primary: "#3498DB" } }}
-                  left={<TextInput.Icon icon="map-marker" color="#BBBBBB" />}
-                  onFocus={() => {
-                    if (eventLocation.length > 2) {
-                      setShowLocationSuggestions(true);
-                    }
-                  }}
-                />
-                
-                <TouchableOpacity 
-                  style={styles.currentLocationButton}
-                  onPress={useCurrentLocation}
-                  disabled={isGeocodingLoading}
-                >
-                  <MaterialIcons name="my-location" size={20} color="#3498DB" />
-                </TouchableOpacity>
-              </View>
-              
-              {/* Location suggestions dropdown */}
-              {showLocationSuggestions && locationSuggestions.length > 0 && (
-                <View style={styles.suggestionsContainer}>
-                  <FlatList
-                    data={locationSuggestions}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.suggestionItem}
-                        onPress={() => selectLocationSuggestion(item)}
-                      >
-                        <MaterialIcons name="place" size={16} color="#3498DB" />
-                        <Text style={styles.suggestionText}>
-                          {item.formattedAddress || item.description}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    keyboardShouldPersistTaps="handled"
+                <View style={styles.inputWithIcon}>
+                  <MaterialIcons
+                    name="location-on"
+                    size={20}
+                    color="#BBBBBB"
+                    style={styles.inputIcon}
                   />
+                  <TextInput
+                    value={eventLocation}
+                    onChangeText={setEventLocation}
+                    placeholder="Enter a location or address"
+                    placeholderTextColor="#BBBBBB"
+                    mode="outlined"
+                    style={styles.input}
+                    theme={{ colors: { text: "#FFFFFF", primary: "#3498DB" } }}
+                    onFocus={() => {
+                      if (eventLocation.length > 2) {
+                        setShowLocationSuggestions(true);
+                      }
+                    }}
+                  />
+                
+                  <TouchableOpacity 
+                    style={styles.currentLocationButton}
+                    onPress={useCurrentLocation}
+                    disabled={isGeocodingLoading}
+                  >
+                    <MaterialIcons name="my-location" size={20} color="#3498DB" />
+                  </TouchableOpacity>
                 </View>
-              )}
-              
-              {isGeocodingLoading && (
-                <View style={styles.geocodingStatus}>
-                  <ActivityIndicator size="small" color="#3498DB" />
-                  <Text style={styles.geocodingStatusText}>Finding location...</Text>
-                </View>
-              )}
-              
-              {geocodingError && (
-                <View style={styles.geocodingStatus}>
-                  <MaterialIcons name="error" size={16} color="#E74C3C" />
-                  <Text style={styles.geocodingErrorText}>{geocodingError}</Text>
-                </View>
-              )}
-              
-              {coordinates && !geocodingError && !isGeocodingLoading && (
-                <View style={styles.geocodingStatus}>
-                  <MaterialIcons name="check-circle" size={16} color="#2ECC71" />
-                  <Text style={styles.geocodingSuccessText}>Location found</Text>
-                </View>
-              )}
+                
+                {/* Location suggestions dropdown */}
+                {showLocationSuggestions && locationSuggestions.length > 0 && (
+                  <View style={styles.suggestionsContainer}>
+                    <FlatList
+                      data={locationSuggestions}
+                      keyExtractor={(item) => item.id}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.suggestionItem}
+                          onPress={() => selectLocationSuggestion(item)}
+                        >
+                          <MaterialIcons name="place" size={16} color="#3498DB" />
+                          <Text style={styles.suggestionText}>
+                            {item.formattedAddress || item.description}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      keyboardShouldPersistTaps="handled"
+                    />
+                  </View>
+                )}
+                
+                {isGeocodingLoading && (
+                  <View style={styles.geocodingStatus}>
+                    <ActivityIndicator size="small" color="#3498DB" />
+                    <Text style={styles.geocodingStatusText}>Finding location...</Text>
+                  </View>
+                )}
+                
+                {geocodingError && (
+                  <View style={styles.geocodingStatus}>
+                    <MaterialIcons name="error" size={16} color="#E74C3C" />
+                    <Text style={styles.geocodingErrorText}>{geocodingError}</Text>
+                  </View>
+                )}
+                
+                {coordinates && !geocodingError && !isGeocodingLoading && (
+                  <View style={styles.geocodingStatus}>
+                    <MaterialIcons name="check-circle" size={16} color="#2ECC71" />
+                    <Text style={styles.geocodingSuccessText}>Location found</Text>
+                  </View>
+                )}
+              </View>
             </View>
           </ScrollView>
 
@@ -530,7 +582,6 @@ const styles = StyleSheet.create({
   },
   modalView: {
     width: "90%",
-    maxHeight: "80%",
     backgroundColor: "#2A2A36",
     borderRadius: 10,
     shadowColor: "#000",
@@ -541,6 +592,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    maxHeight: "90%",
   },
   modalHeader: {
     flexDirection: "row",
@@ -571,8 +623,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   input: {
-    // backgroundColor: "rgba(30, 30, 42, 0.8)",
+    backgroundColor: "#1E1E2A",
     color: "#ffffff",
+  },
+  inputWithIcon: {
+    position: "relative",
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  inputIcon: {
+    position: "absolute",
+    zIndex: 1,
+    left: 12,
   },
   rowContainer: {
     flexDirection: "row",

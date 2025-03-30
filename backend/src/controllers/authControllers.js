@@ -161,8 +161,28 @@ const login = async (req, res) => {
     // Generate JWT tokens
     const { token, refreshToken } = generateTokens(user._id);
 
-    const formattedUser = formatUserResponse(user);
-
+    const formatUserResponse = (user) => {
+      return {
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        displayName: user.displayName || user.name,
+        role: user.role,
+        bio: user.bio,
+        avatar: user.avatar,
+        avatarType: user.avatarType || 'Explorer', // Add avatarType
+        location: user.location,
+        hobbies: user.hobbies?.map((id) => id.toString()),
+        notificationPreferences: user.notificationPreferences || {
+          events: true,
+          messages: true,
+          nearbyActivities: true
+        },
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      };
+    };
     // Send response in the format expected by the client
     const response = {
       success: true,

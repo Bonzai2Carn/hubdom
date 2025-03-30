@@ -8,6 +8,8 @@ const hobbyRoutes = require("./hobbyRoutes");
 const eventRoutes = require("./eventRoutes");
 const userRoutes = require("./userRoutes");
 const dataController = require("../../../controllers/dataController");
+const notificationRoutes = require('./notificationRoutes');
+
 
 // API welcome route
 router.get("/", (req, res) => {
@@ -26,6 +28,7 @@ router.use("/auth", authRoutes);
 router.use("/hobbies", hobbyRoutes);
 router.use("/events", eventRoutes);
 router.use("/users", userRoutes);
+router.use("/notifications", notificationRoutes);
 
 // Log routing for debugging
 console.log('Routes mounted successfully:');
@@ -33,6 +36,7 @@ console.log('- /auth routes mounted');
 console.log('- /hobbies routes mounted');
 console.log('- /events routes mounted');
 console.log('- /users routes mounted');
+console.log('- /notifications routes mounted');
 
 // Data routes
 router.get("/data", dataController.getData);

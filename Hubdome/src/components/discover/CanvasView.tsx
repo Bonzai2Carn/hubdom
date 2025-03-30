@@ -1,484 +1,292 @@
-import React, { useState, useRef, useCallback, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
+// src/components/discover/CanvasView.tsx - Update to focus on hobby categories
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
   TouchableOpacity,
-  Animated,
-  PanResponder,
-  ScrollView,
+  FlatList,
   Dimensions,
-  Platform,
-  ActivityIndicator,
-  LayoutAnimation,
-  UIManager
-} from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
-import { CanvasViewProps, ContentItem } from "../../types/discover";
-import StickyNote from "./StickyNote";
-import { CATEGORIES } from "../../utils/mockData";
+  ActivityIndicator 
+} from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useAppDispatch, useAppSelector } from '../../redux/hooks';
+import { fetchHobbies } from '../../redux/slices/hobbySlice';
+import CreateHobbyModal from '../hobbies/CreateHobbyModal';
 
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
+const { width } = Dimensions.get('window');
+
+interface CanvasViewProps {
+  selectedCategory: string;
+  onCategorySelect: (categoryId: string) => void;
+  searchQuery: string;
 }
 
-const { width, height } = Dimensions.get("window");
-
-// Define category cluster positions (for canvas mode)
-const CATEGORY_POSITIONS = {
-  sports: { x: width * 0.2, y: height * 0.2 },
-  art: { x: width * 0.7, y: height * 0.15 },
-  music: { x: width * 0.5, y: height * 0.4 },
-  gaming: { x: width * 0.2, y: height * 0.6 },
-  outdoor: { x: width * 0.8, y: height * 0.5 },
-  tech: { x: width * 0.3, y: height * 0.35 },
-  food: { x: width * 0.7, y: height * 0.7 },
-  books: { x: width * 0.1, y: height * 0.8 },
-};
-
 const CanvasView: React.FC<CanvasViewProps> = ({
-  content,
   selectedCategory,
-  searchQuery,
   onCategorySelect,
-  onItemPress,
-  onFork,
+  searchQuery,
 }) => {
-  // State for canvas position and scale
-  const [scale, setScale] = useState<number>(0.6);
-  const [focusedCategory, setFocusedCategory] = useState<string | null>(selectedCategory !== 'all' ? selectedCategory : null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [canvasMode, setCanvasMode] = useState<'clusters' | 'grid'>(selectedCategory === 'all' ? 'clusters' : 'grid');
-  
-  // Animation values
-  const pan = useRef(new Animated.ValueXY()).current;
-  const zoomAnim = useRef(new Animated.Value(scale)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const dispatch = useAppDispatch();
+  const { hobbies, loading } = useAppSelector((state) => state.hobby);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // Memoize filtered content based on category and search
-  const filteredContent = useMemo(() => {
-    return content.filter((item) => {
-      const matchesCategory =
-        selectedCategory === "all" || item.category === selectedCategory;
-      const matchesSearch =
-        !searchQuery ||
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.content &&
-          item.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (item.description &&
-          item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+  // Fetch hobbies when component mounts
+  useEffect(() => {
+    dispatch(fetchHobbies());
+  }, [dispatch]);
+
+  // Extract unique categories from hobbies
+  const categories = useMemo(() => {
+    const categoriesSet = new Set(['All']);
+    hobbies.forEach(hobby => {
+      if (hobby.category) {
+        categoriesSet.add(hobby.category);
+      }
+    });
+    return Array.from(categoriesSet);
+  }, [hobbies]);
+
+  // Filter hobbies based on selected category and search query
+  const filteredHobbies = useMemo(() => {
+    return hobbies.filter(hobby => {
+      const matchesCategory = selectedCategory === 'All' || hobby.category === selectedCategory;
+      const matchesSearch = !searchQuery || 
+        hobby.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (hobby.description && hobby.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      
       return matchesCategory && matchesSearch;
     });
-  }, [content, selectedCategory, searchQuery]);
+  }, [hobbies, selectedCategory, searchQuery]);
 
-  // Group content by category
-  const contentByCategory = useMemo(() => {
-    const result: Record<string, ContentItem[]> = {};
-    CATEGORIES.forEach((category) => {
-      result[category.id] = filteredContent
-        .filter((item) => item.category === category.id)
-        .sort((a, b) => (b.interestLevel || 0) - (a.interestLevel || 0));
+  // Group hobbies by category for visualization
+  const hobbiesByCategory = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
+    
+    filteredHobbies.forEach(hobby => {
+      const category = hobby.category || 'Uncategorized';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(hobby);
     });
-    return result;
-  }, [filteredContent]);
+    
+    return grouped;
+  }, [filteredHobbies]);
 
-  // Filter visible categories
-  const visibleCategories = useMemo(() => {
-    return CATEGORIES.filter(category => 
-      contentByCategory[category.id]?.length > 0 && 
-      (selectedCategory === 'all' || category.id === selectedCategory)
-    );
-  }, [contentByCategory, selectedCategory]);
-
-  // Calculate note positions for canvas view
-  const getNotePositions = useCallback((categoryId: string, itemIndex: number, total: number) => {
-    if (!CATEGORY_POSITIONS[categoryId as keyof typeof CATEGORY_POSITIONS]) {
-      // Fallback for unknown categories
-      return { x: width * 0.5, y: height * 0.5 };
-    }
-    
-    const basePosition = CATEGORY_POSITIONS[categoryId as keyof typeof CATEGORY_POSITIONS];
-    const radius = 100 * scale;
-    const angle = (2 * Math.PI * itemIndex) / Math.max(total, 1);
-    
-    return {
-      x: basePosition.x + radius * Math.cos(angle),
-      y: basePosition.y + radius * Math.sin(angle),
-    };
-  }, [scale]);
-
-  // Calculate rotation angle for sticky notes
-  const getRotationAngle = useCallback((itemId: string) => {
-    // Create a deterministic but seemingly random rotation
-    const charCodeSum = itemId.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    return (charCodeSum % 10) - 5; // Range from -5 to 5 degrees
-  }, []);
-
-  // Set up pan responder for dragging the canvas
-  const panResponder = useMemo(() => {
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => canvasMode === 'clusters',
-      onMoveShouldSetPanResponder: () => canvasMode === 'clusters',
-      onPanResponderGrant: () => {
-        pan.setOffset({
-          x: (pan.x as any)._value,
-          y: (pan.y as any)._value,
-        });
-      },
-      onPanResponderMove: Animated.event(
-        [null, { dx: pan.x, dy: pan.y }],
-        { useNativeDriver: false }
-      ),
-      onPanResponderRelease: () => {
-        pan.flattenOffset();
-      },
-    });
-  }, [pan, canvasMode]);
-
-  // Navigation controls for the canvas
-  const zoomIn = useCallback(() => {
-    const newScale = Math.min(scale * 1.2, 2);
-    setScale(newScale);
-    
-    // Animate the zoom
-    Animated.timing(zoomAnim, {
-      toValue: newScale,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  }, [scale, zoomAnim]);
-  
-  const zoomOut = useCallback(() => {
-    const newScale = Math.max(scale * 0.8, 0.3);
-    setScale(newScale);
-    
-    // Animate the zoom
-    Animated.timing(zoomAnim, {
-      toValue: newScale,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  }, [scale, zoomAnim]);
-  
-  const resetView = useCallback(() => {
-    setScale(0.6);
-    
-    Animated.parallel([
-      Animated.timing(zoomAnim, {
-        toValue: 0.6,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-      Animated.timing(pan, {
-        toValue: { x: 0, y: 0 },
-        duration: 300,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }, [zoomAnim, pan]);
-
-  // Focus on a specific category
-  const focusCategory = useCallback((categoryId: string) => {
-    setIsLoading(true);
-    
-    // Fade out
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start(() => {
-      // Switch to grid mode
-      setCanvasMode('grid');
-      setFocusedCategory(categoryId);
-      onCategorySelect(categoryId);
-      
-      // Use layout animation for smooth transition
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      
-      // Fade back in
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: false,
-        delay: 100,
-      }).start(() => {
-        setIsLoading(false);
-      });
-    });
-  }, [fadeAnim, onCategorySelect]);
-
-  // Return to clusters view
-  const returnToClusters = useCallback(() => {
-    setIsLoading(true);
-    
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start(() => {
-      setCanvasMode('clusters');
-      setFocusedCategory(null);
-      onCategorySelect('all');
-      
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: false,
-        delay: 100,
-      }).start(() => {
-        setIsLoading(false);
-      });
-    });
-  }, [fadeAnim, onCategorySelect]);
-
-  // Render content in grid mode (when focused on a category)
-  const renderGridContent = () => {
-    if (!focusedCategory) return null;
-    
-    const categoryItems = contentByCategory[focusedCategory] || [];
-    const categoryInfo = CATEGORIES.find(cat => cat.id === focusedCategory);
-    
-    if (categoryItems.length === 0) {
-      return (
-        <View style={styles.emptyState}>
-          <MaterialIcons name="search-off" size={64} color="#BBBBBB" />
-          <Text style={styles.emptyStateText}>No items found</Text>
-        </View>
-      );
-    }
-    
-    // Group by content type
-    const videoItems = categoryItems.filter(item => item.type === 'video');
-    const audioItems = categoryItems.filter(item => item.type === 'audio');
-    const threadItems = categoryItems.filter(item => item.type === 'thread');
-    
-    return (
-      <ScrollView style={styles.gridContainer}>
-        <View style={styles.gridHeader}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={returnToClusters}
+  // Render category selector
+  const renderCategorySelector = () => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.categorySelectorContent}
+    >
+      {categories.map((category) => (
+        <TouchableOpacity
+          key={category}
+          style={[
+            styles.categoryButton,
+            selectedCategory === category && styles.selectedCategoryButton,
+          ]}
+          onPress={() => onCategorySelect(category)}
+        >
+          <Text
+            style={[
+              styles.categoryButtonText,
+              selectedCategory === category && styles.selectedCategoryButtonText,
+            ]}
           >
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.gridHeaderTitle}>
-            {categoryInfo?.name || focusedCategory}
+            {category}
+          </Text>
+        </TouchableOpacity>
+      ))}
+      
+      <TouchableOpacity
+        style={styles.createCategoryButton}
+        onPress={() => setIsCreateModalOpen(true)}
+      >
+        <MaterialIcons name="add" size={18} color="#3498DB" />
+        <Text style={styles.createCategoryButtonText}>Create Hobby</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
+  // Render a hobby item
+  const renderHobbyItem = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.hobbyItem}
+      // src/components/discover/CanvasView.tsx - continued
+      onPress={() => onHobbyPress(item)}
+    >
+      <View 
+        style={[
+          styles.hobbyItemHeader, 
+          { backgroundColor: getCategoryColor(item.category) }
+        ]}
+      >
+        <Text style={styles.hobbyName}>{item.name}</Text>
+      </View>
+      
+      <View style={styles.hobbyStats}>
+        <View style={styles.statItem}>
+          <MaterialIcons name="people" size={14} color="#BBBBBB" />
+          <Text style={styles.statText}>
+            {item.memberCount || 0} members
           </Text>
         </View>
         
-        {/* Videos section */}
-        {videoItems.length > 0 && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Videos</Text>
-            <View style={styles.gridItems}>
-              {videoItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.gridItem}
-                  onPress={() => onItemPress(item)}
-                >
-                  <View style={styles.gridItemThumbnail}>
-                    <MaterialIcons name="play-circle-filled" size={32} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.gridItemTitle} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.gridItemAuthor} numberOfLines={1}>
-                    {item.author}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.gridItemForkButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      onFork(item);
-                    }}
-                  >
-                    <MaterialIcons name="call-split" size={16} color="#FFFFFF" />
-                    <Text style={styles.gridItemForkText}>{item.forks}</Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
-            </View>
+        {item.eventCount > 0 && (
+          <View style={styles.statItem}>
+            <MaterialIcons name="event" size={14} color="#BBBBBB" />
+            <Text style={styles.statText}>
+              {item.eventCount} events
+            </Text>
           </View>
         )}
-        
-        {/* Audio section */}
-        {audioItems.length > 0 && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Audio</Text>
-            <View style={styles.gridItems}>
-              {audioItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.gridItem}
-                  onPress={() => onItemPress(item)}
-                >
-                  <View style={[styles.gridItemThumbnail, styles.audioThumbnail]}>
-                    <MaterialIcons name="headset" size={32} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.gridItemTitle} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.gridItemAuthor} numberOfLines={1}>
-                    {item.author}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.gridItemForkButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      onFork(item);
-                    }}
-                  >
-                    <MaterialIcons name="call-split" size={16} color="#FFFFFF" />
-                    <Text style={styles.gridItemForkText}>{item.forks}</Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-        
-        {/* Threads section */}
-        {threadItems.length > 0 && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Threads</Text>
-            <View style={styles.gridItems}>
-              {threadItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.gridItem}
-                  onPress={() => onItemPress(item)}
-                >
-                  <View style={[styles.gridItemThumbnail, styles.threadThumbnail]}>
-                    <MaterialIcons name="forum" size={32} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.gridItemTitle} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.gridItemAuthor} numberOfLines={1}>
-                    {item.author}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.gridItemForkButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      onFork(item);
-                    }}
-                  >
-                    <MaterialIcons name="call-split" size={16} color="#FFFFFF" />
-                    <Text style={styles.gridItemForkText}>{item.forks}</Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-      </ScrollView>
-    );
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Get color based on category
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      'Sports and Fitness': '#F97316',
+      'Creative and Visual Arts': '#EC4899',
+      'Music and Performing Arts': '#8B5CF6',
+      'Gaming & Entertainment': '#3B82F6',
+      'Outdoor & Adventure': '#10B981',
+      'Cooking': '#F59E0B', 
+      'Technology': '#6366F1',
+      'Community Activities': '#14B8A6',
+      'Pet & Animal Enthusiasts': '#FB923C',
+      'Collections': '#64748B',
+      'Other': '#3498DB',
+    };
+    
+    return colors[category] || '#3498DB';
   };
 
-  // Render canvas clusters mode
-  const renderCanvasClusters = () => {
-    return (
-      <Animated.View
-        style={[
-          styles.canvasContainer,
-          {
-            transform: [
-              { translateX: pan.x },
-              { translateY: pan.y },
-              { scale: zoomAnim },
-            ],
-            opacity: fadeAnim,
-          },
-        ]}
-        {...panResponder.panHandlers}
-      >
-        {/* Render category labels */}
-        {visibleCategories.map((category) => {
-          const basePos = CATEGORY_POSITIONS[category.id as keyof typeof CATEGORY_POSITIONS];
-          if (!basePos) return null;
-          
-          const items = contentByCategory[category.id];
-          if (!items || items.length === 0) return null;
-          
-          return (
-            <React.Fragment key={`label-${category.id}`}>
-              {/* Category label bubble */}
-              <TouchableOpacity
-                style={[
-                  styles.categoryBubble,
-                  {
-                    left: basePos.x - 50,
-                    top: basePos.y - 30,
-                    backgroundColor: category.darkColor,
-                  },
-                ]}
-                onPress={() => focusCategory(category.id)}
-              >
-                <Text style={styles.categoryIcon}>{category.icon}</Text>
-                <Text style={styles.categoryName}>{category.name}</Text>
-                <Text style={styles.categoryItemCount}>{items.length}</Text>
-              </TouchableOpacity>
-              
-              {/* Render sticky notes for this category */}
-              {items.slice(0, 5).map((item, index) => {
-                const position = getNotePositions(category.id, index, Math.min(items.length, 5));
-                return (
-                  <StickyNote
-                    key={item.id}
-                    item={item}
-                    position={position}
-                    rotationAngle={getRotationAngle(item.id)}
-                    onPress={onItemPress}
-                  />
-                );
-              })}
-            </React.Fragment>
-          );
-        })}
-      </Animated.View>
-    );
+  // Handle hobby item press
+  const onHobbyPress = (hobby) => {
+    // Navigate to hobby detail screen
+    // This should be provided by a prop in a real implementation
+    console.log('Hobby pressed:', hobby);
   };
+
+  // Render hobbies by category
+  const renderCategorySection = (category: string, hobbies: any[]) => (
+    <View key={category} style={styles.categorySection}>
+      <Text style={styles.categoryTitle}>{category}</Text>
+      
+      <FlatList
+        data={hobbies}
+        renderItem={renderHobbyItem}
+        keyExtractor={(item) => item.id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.hobbiesContainer}
+      />
+    </View>
+  );
+
+  // Loading state
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3498DB" />
+        <Text style={styles.loadingText}>Loading hobbies...</Text>
+      </View>
+    );
+  }
+
+  // Empty state
+  if (filteredHobbies.length === 0) {
+    return (
+      <View style={styles.container}>
+        {renderCategorySelector()}
+        
+        <View style={styles.emptyContainer}>
+          <MaterialIcons name="search-off" size={64} color="rgba(255,255,255,0.2)" />
+          <Text style={styles.emptyText}>No hobbies found</Text>
+          <Text style={styles.emptySubtext}>
+            {searchQuery
+              ? "Try a different search term or category"
+              : "Be the first to create a hobby in this category!"}
+          </Text>
+          
+          <TouchableOpacity
+            style={styles.createHobbyButton}
+            onPress={() => setIsCreateModalOpen(true)}
+          >
+            <MaterialIcons name="add" size={18} color="#FFFFFF" />
+            <Text style={styles.createHobbyButtonText}>Create Hobby</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <CreateHobbyModal
+          isVisible={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          initialCategory={selectedCategory !== 'All' ? selectedCategory : undefined}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Canvas controls */}
-      {canvasMode === 'clusters' && (
-        <View style={styles.controlsContainer}>
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={zoomIn}
-          >
-            <MaterialIcons name="add" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={zoomOut}
-          >
-            <MaterialIcons name="remove" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={resetView}
-          >
-            <MaterialIcons name="refresh" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      )}
+      {renderCategorySelector()}
       
-      {/* Loading indicator */}
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#3498DB" />
-        </View>
-      )}
+      <ScrollView style={styles.content}>
+        {selectedCategory === 'All' ? (
+          // When "All" is selected, show sections by category
+          Object.entries(hobbiesByCategory).map(([category, hobbies]) => 
+            renderCategorySection(category, hobbies)
+          )
+        ) : (
+          // When specific category is selected, show a grid of hobbies
+          <View style={styles.hobbyGrid}>
+            {filteredHobbies.map((hobby) => (
+              <TouchableOpacity
+                key={hobby.id}
+                style={styles.hobbyGridItem}
+                onPress={() => onHobbyPress(hobby)}
+              >
+                <View style={styles.hobbyContent}>
+                  <Text style={styles.hobbyGridName}>{hobby.name}</Text>
+                  <Text style={styles.hobbyDescription} numberOfLines={2}>
+                    {hobby.description}
+                  </Text>
+                  
+                  <View style={styles.hobbyGridStats}>
+                    <View style={styles.statItem}>
+                      <MaterialIcons name="people" size={14} color="#BBBBBB" />
+                      <Text style={styles.statText}>
+                        {hobby.memberCount || 0}
+                      </Text>
+                    </View>
+                    
+                    {hobby.eventCount > 0 && (
+                      <View style={styles.statItem}>
+                        <MaterialIcons name="event" size={14} color="#BBBBBB" />
+                        <Text style={styles.statText}>
+                          {hobby.eventCount}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </ScrollView>
       
-      {/* Render appropriate view based on mode */}
-      {canvasMode === 'clusters' ? renderCanvasClusters() : renderGridContent()}
+      <CreateHobbyModal
+        isVisible={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        initialCategory={selectedCategory !== 'All' ? selectedCategory : undefined}
+      />
     </View>
   );
 };
@@ -486,154 +294,166 @@ const CanvasView: React.FC<CanvasViewProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1E1E2A",
+    backgroundColor: '#1E1E2A',
   },
-  canvasContainer: {
+  loadingContainer: {
     flex: 1,
-    width: width * 2,
-    height: height * 2,
-    position: "absolute",
-    top: -height / 2,
-    left: -width / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  controlsContainer: {
-    position: "absolute",
-    top: 20,
-    right: 20,
-    zIndex: 10,
-    backgroundColor: "rgba(42, 42, 54, 0.8)",
-    borderRadius: 8,
-    paddingVertical: 8,
+  loadingText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: 16,
   },
-  controlButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  categoryBubble: {
-    position: "absolute",
-    width: 100,
-    padding: 8,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 5,
-  },
-  categoryIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  categoryName: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    textAlign: "center",
-  },
-  categoryItemCount: {
-    fontSize: 10,
-    color: "rgba(255, 255, 255, 0.7)",
-  },
-  gridContainer: {
-    flex: 1,
+  categorySelectorContent: {
     padding: 16,
   },
-  gridHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
+  categoryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    marginRight: 8,
   },
-  backButton: {
-    marginRight: 16,
+  selectedCategoryButton: {
+    backgroundColor: '#3498DB',
   },
-  gridHeaderTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+  categoryButtonText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '500',
   },
-  sectionContainer: {
+  selectedCategoryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  createCategoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3498DB',
+    marginRight: 8,
+  },
+  createCategoryButtonText: {
+    color: '#3498DB',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  content: {
+    flex: 1,
+  },
+  categorySection: {
     marginBottom: 24,
   },
-  sectionTitle: {
+  categoryTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    marginBottom: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    padding: 16,
+    paddingBottom: 8,
   },
-  gridItems: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+  hobbiesContainer: {
+    paddingHorizontal: 16,
   },
-  gridItem: {
-    width: width / 2 - 24,
-    marginBottom: 16,
-    backgroundColor: "#2A2A36",
+  hobbyItem: {
+    width: 180,
+    height: 120,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 8,
-    overflow: "hidden",
+    marginRight: 12,
+    overflow: 'hidden',
   },
-  gridItemThumbnail: {
-    height: 100,
-    backgroundColor: "#3498DB",
-    justifyContent: "center",
-    alignItems: "center",
+  hobbyItemHeader: {
+    padding: 12,
+    height: 70,
+    justifyContent: 'center',
   },
-  audioThumbnail: {
-    backgroundColor: "#9B59B6",
+  hobbyName: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
-  threadThumbnail: {
-    backgroundColor: "#E67E22",
+  hobbyStats: {
+    flexDirection: 'row',
+    padding: 12,
   },
-  gridItemTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    marginHorizontal: 8,
-    marginTop: 8,
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  gridItemAuthor: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.7)",
-    marginHorizontal: 8,
-    marginTop: 4,
-  },
-  gridItemForkButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(52, 152, 219, 0.2)",
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignSelf: "flex-start",
-    margin: 8,
-  },
-  gridItemForkText: {
-    color: "#FFFFFF",
+  statText: {
+    color: '#BBBBBB',
     fontSize: 12,
     marginLeft: 4,
   },
-  emptyState: {
+  emptyContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
   },
-  emptyStateText: {
-    fontSize: 18,
-    color: "#FFFFFF",
+  emptyText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
     marginTop: 16,
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(30, 30, 42, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 20,
+  emptySubtext: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  createHobbyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#3498DB',
+    borderRadius: 8,
+  },
+  createHobbyButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  hobbyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+  },
+  hobbyGridItem: {
+    width: (width - 48) / 2,
+    height: 160,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    margin: 8,
+    overflow: 'hidden',
+  },
+  hobbyContent: {
+    padding: 12,
+    flex: 1,
+  },
+  hobbyGridName: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  hobbyDescription: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+    flex: 1,
+  },
+  hobbyGridStats: {
+    flexDirection: 'row',
+    marginTop: 8,
   },
 });
 
-export default React.memo(CanvasView);
+export default CanvasView;

@@ -48,6 +48,18 @@ export interface AuthResponse {
   };
 }
 
+export interface UserProfileUpdate {
+  displayName?: string;
+  avatarType?: string;
+  bio?: string;
+  hobbies?: string[];
+  notificationPreferences?: {
+    events?: boolean;
+    messages?: boolean;
+    nearbyActivities?: boolean;
+  };
+}
+
 /**
  * Auth service for handling authentication
  */
@@ -235,6 +247,50 @@ class AuthService {
     }
   }
   
+  public async updateUserProfile(profileData: UserProfileUpdate): Promise<AuthResponse> {
+    try {
+      const response = await API.put<AuthResponse>('/users/profile', profileData);
+      
+      // Update user in storage
+      if (response && response.user) {
+        const userJson = await AsyncStorage.getItem(USER_KEY);
+        if (userJson) {
+          const user = JSON.parse(userJson);
+          const updatedUser = { ...user, ...response.user };
+          await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Update user avatar
+   */
+  public async updateUserAvatar(avatarType: string): Promise<AuthResponse> {
+    try {
+      const response = await API.put<AuthResponse>('/users/avatar', { avatarType });
+      
+      // Update user in storage
+      if (response && response.user) {
+        const userJson = await AsyncStorage.getItem(USER_KEY);
+        if (userJson) {
+          const user = JSON.parse(userJson);
+          user.avatarType = response.user.avatarType;
+          await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Error updating user avatar:', error);
+      throw error;
+    }
+  }
   /**
    * Clear all authentication data
    */

@@ -22,6 +22,40 @@ const EventSchema = new Schema({
     ref: "User",
     required: true,
   },
+  eventType: {
+    type: String,
+    enum: ["Solo", "Classified", "Public"],
+    default: "Public",
+  },
+  weeklySchedule: {
+    daysOfWeek: [{
+      type: Number, // 0-6, 0 is Sunday
+      min: 0,
+      max: 6,
+    }],
+    time: String, // "HH:MM" format
+    enabled: {
+      type: Boolean,
+      default: false,
+    },
+    duration: {
+      type: Number, // Duration in minutes
+      required: true
+    }
+  },
+  participantLimit: {
+    type: Number,
+    default: 10,
+  },
+  organizer: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  invitedParticipants: [{
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  }],
   location: {
     type: {
       type: String,
@@ -75,6 +109,15 @@ const EventSchema = new Schema({
     type: Date,
     default: Date.now,
   },
+  joinedAt: {
+    type: Date,
+    default: Date.now
+  },
+  status: {
+    type: String,
+    enum: ["going", "interested", "not-going"],
+    default: "going"
+  }
 });
 
 // Pre-save hook to update the updatedAt field

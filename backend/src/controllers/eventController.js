@@ -136,10 +136,17 @@ async function createEvent(req, res) {
       title,
       description,
       hobbyId,
+      eventType,
+      daysOfWeek,
+      time,
+      duration,
       location,
       startDate,
       endDate,
       capacity,
+      weeklySchedule,
+      participantLimit,
+      invitedParticipants,
     } = req.body;
 
     if (
@@ -147,6 +154,10 @@ async function createEvent(req, res) {
       !description ||
       !hobbyId ||
       !location ||
+      !daysOfWeek ||
+      !weeklySchedule ||
+      !duration ||
+      !time ||
       !startDate ||
       !endDate
     ) {
@@ -156,38 +167,106 @@ async function createEvent(req, res) {
       });
     }
 
+    // Check if hobby exists
+    const hobby = await Hobby.findById(hobbyId);
+    if (!hobby) {
+      return res.status(404).json({
+        success: false,
+        error: "Hobby not found"
+      });
+    }
+
     // Mock creation response
-    const event = {
-      id: Date.now(),
+    // const event = new Event({
+    //   id: Date.now(),
+    //   title,
+    //   description,
+    //   hobby: hobbyId,
+    //   location: {
+    //     type: "Point",
+    //     coordinates: [location.longitude, location.latitude],
+    //     formattedAddress: location.formattedAddress,
+    //   },
+    //   startDate,
+    //   endDate,
+    //   capacity: capacity || 10,
+    //   eventType: eventType || "Public",
+    //   participantLimit: participantLimit || capacity || 10,
+    //   organizer: {
+    //     id: req.user.id,
+    //     name: req.user.name,
+    //   },
+    //   participants: [
+    //     {
+    //       id: req.user.id,
+    //       name: req.user.name,
+    //     },
+    //   ],
+    //   createdAt: new Date().toISOString(),
+    // });
+
+    // // Add invited participants if provided
+    // if (invitedParticipants && Array.isArray(invitedParticipants) && invitedParticipants.length > 0) {
+    //   // Validate that each participant exists
+    //   const validParticipants = [];
+    //   for (const participantId of invitedParticipants) {
+    //     const participant = await User.findById(participantId);
+    //     if (participant) {
+    //       validParticipants.push(participantId);
+    //     }
+    //   }
+    //   event.invitedParticipants = validParticipants;
+    // }
+
+    // await event.save();
+
+    // Create event
+    const newEvent = await Event.create({
       title,
       description,
-      hobby: { id: hobbyId, name: "Photography" }, // Mock hobby data
-      location,
-      startDate,
-      endDate,
-      capacity: capacity || 10,
-      organizer: {
-        id: req.user.id,
-        name: req.user.name,
+      hobby: hobbyId,
+      eventType: eventType || "public",
+      schedule: {
+        days,
+        time,
+        duration
       },
-      participants: [
-        {
-          id: req.user.id,
-          name: req.user.name,
-        },
-      ],
-      createdAt: new Date().toISOString(),
-    };
-
+      organizer: req.user.id,
+      location: {
+        type: "Point",
+        coordinates: [location.longitude, location.latitude],
+        formattedAddress: location.formattedAddress
+      },
+      capacity: capacity || 10,
+      participants: [{ user: req.user.id, status: "going" }]
+    });
+    
+    // Add additional participants if provided
+    if (participants && participants.length > 0) {
+      // Add participants here
+    }
+    
+    // // Populate references
+    // await newEvent.populate([
+    //   { path: 'hobby', select: 'name category image' },
+    //   { path: 'organizer', select: 'name username avatar avatarType' },
+    //   { path: 'participants', select: 'name username avatar avatarType' },
+    // ]);
+    
+    // Update hobby event count
+    await Hobby.findByIdAndUpdate(hobbyId, {
+      $inc: { eventsCount: 1 }
+    });
+    
     res.status(201).json({
       success: true,
-      data: event,
+      data: newEvent
     });
   } catch (error) {
     console.error("Error creating event:", error);
     res.status(500).json({
       success: false,
-      error: "Server Error",
+      error: "Server Error"
     });
   }
 }
@@ -253,16 +332,55 @@ async function deleteEvent(req, res) {
 async function joinEvent(req, res) {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    // Mock response
+    // Find event
+    const event = await Event.findById(id);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        error: "Event not found",
+      });
+    }
+
+    // Check if event is at capacity
+    if (event.participants.length >= event.participantLimit) {
+      return res.status(400).json({
+        success: false,
+        error: "Event has reached its participant limit",
+      });
+    }
+
+    // Check if user is already a participant
+    if (event.participants.includes(userId)) {
+      return res.status(400).json({
+        success: false,
+        error: "You are already a participant in this event",
+      });
+    }
+
+    // For classified events, check if user is invited
+    if (event.eventType === "Classified" && !event.invitedParticipants.includes(userId)) {
+      return res.status(403).json({
+        success: false,
+        error: "This is a classified event. You need an invitation to join.",
+      });
+    }
+
+    // Add user to participants
+    event.participants.push(userId);
+    await event.save();
+
+    // Populate references for the response
+    await event.populate([
+      { path: "hobby", select: "name category image" },
+      { path: "organizer", select: "name username avatar avatarType" },
+      { path: "participants", select: "name username avatar avatarType" },
+    ]);
+
     res.status(200).json({
       success: true,
-      message: `Successfully joined event with ID ${id}`,
-      data: {
-        id: parseInt(id),
-        joined: true,
-        joinedAt: new Date().toISOString(),
-      },
+      data: event,
     });
   } catch (error) {
     console.error("Error joining event:", error);

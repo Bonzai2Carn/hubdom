@@ -20,23 +20,40 @@ const HobbySchema = new Schema({
   category: {
     type: String,
     enum: [
-      "Sports and Fitness",
-      "Creative and Visual Arts",
-      "Music and Perfoming Arts",
-      "Gaming & Entertainment",
-      "Outdoor & Adventure",
-      "Cooking",
-      "Technology",
-      "Community Activities",
-      "Pet & Animal Enthusiasts",
-      "Collections",
-      "Other",
+      "artistic", 
+      "outdoor", 
+      "physical", 
+      "musical", 
+      "tech-and-gadgets",
+      "culinary", 
+      "diy-and-craft", 
+      "connection-based", 
+      "spiritual-and-mindfulness",
+      "scientific-and-intellectual", 
+      "games-and-puzzles", 
+      "collecting",
+      "travel", 
+      "mind", 
+      "health", 
+      "money-making",
     ],
-    default: "Other",
+    required: true
+  },
+  subcategory: {
+    type: String,
+    required: true
   },
   popularity: {
     type: Number,
     default: 0,
+  },
+  membersCount: {
+    type: Number,
+    default: 0
+  },
+  eventsCount: {
+    type: Number,
+    default: 0
   },
   tags: [String],
   slug: {
@@ -46,6 +63,7 @@ const HobbySchema = new Schema({
   creator: {
     type: Schema.Types.ObjectId,
     ref: "User",
+    required: true,
   },
   createdAt: {
     type: Date,
@@ -57,6 +75,9 @@ const HobbySchema = new Schema({
   }
 });
 
+// Index for better query performance
+HobbySchema.index({ category: 1, subcategory: 1 });
+HobbySchema.index({ name: 'text', description: 'text' });
 // Pre-save hook to update the updatedAt field and set the slug if not provided
 HobbySchema.pre('save', function(next) {
   this.updatedAt = new Date();

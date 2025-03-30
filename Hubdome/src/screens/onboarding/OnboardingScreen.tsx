@@ -1,4 +1,6 @@
-import React, { useState, useCallback, memo } from 'react';
+// src/screens/onboarding/OnboardingScreen.tsx
+
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,326 +8,182 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
-  Dimensions,
-  Platform,
   StatusBar,
-  Alert,
+  Image
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Button, Surface } from 'react-native-paper';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { useAppDispatch } from "../../redux/hooks";
-import { joinHobby } from "../../redux/actions/hobbyActions";
+import { useAppDispatch } from '../../redux/hooks';
+import { completeOnboarding } from '../../redux/slices/authSlice';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Activity category interface
-interface ActivitySubcategory {
-  name: string;
-  venues: string;
-  popularity?: number; // Add popularity field
-}
+// Import components
+import HobbyCategorySelector from '../../components/onboarding/HobbyCategorySelector';
+import AvatarSelector from '../../components/onboarding/AvatarSelection';
 
-interface ActivityCategory {
-  id: number;
-  name: string;
-  icon: string;
-  color: string;
-  subcategories: ActivitySubcategory[];
-}
-
-// Props for OnboardingScreen
-interface OnboardingScreenProps {
-  navigation: StackNavigationProp<any>;
-  onComplete: (selectedActivities: Record<number, string[]>) => void;
-}
-
-const { width } = Dimensions.get('window');
-
-const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation, onComplete }) => {
-  // State to track selected activities
-  const [selectedActivities, setSelectedActivities] = useState<Record<number, string[]>>({});
-  // Loading state for button
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+const OnboardingScreen = ({ navigation }) => {
+  // State
+  const [currentStep, setCurrentStep] = useState(0);
+  const [selectedHobbies, setSelectedHobbies] = useState<Record<string, string[]>>({});
+  const [selectedAvatar, setSelectedAvatar] = useState<string>("explorer");
+  
+  // Redux
   const dispatch = useAppDispatch();
-
-  // Hard-coded activity categories with popularity data
-  const activityCategories: ActivityCategory[] = [
+  
+  // Steps for onboarding
+  const steps = [
     {
-      id: 1,
-      name: "Sports & Fitness",
-      icon: "fitness-center",
-      color: "blue",
-      subcategories: [
-        { name: "Running", venues: "Parks, streets, trails", popularity: 285 },
-        { name: "Cycling", venues: "Roads, trails, velodromes", popularity: 194 },
-        { name: "Swimming", venues: "Pools, beaches, lakes", popularity: 165 },
-        { name: "Basketball", venues: "Courts, recreation centers", popularity: 248 },
-        { name: "Soccer", venues: "Fields, indoor arenas", popularity: 312 },
-        { name: "Tennis", venues: "Courts, sports clubs", popularity: 142 },
-        { name: "Yoga", venues: "Studios, parks, home", popularity: 287 },
-        { name: "Weightlifting", venues: "Gyms, home setup", popularity: 176 },
-        { name: "Rock Climbing", venues: "Climbing gyms, outdoor cliffs", popularity: 127 },
-        { name: "Skateboarding", venues: "Skate parks, streets", popularity: 142 },
-      ],
+      id: 'hobbies',
+      title: 'Choose Your Hobbies',
+      description: 'Select hobbies you enjoy or want to explore',
+      component: <HobbyCategorySelector 
+        selectedHobbies={selectedHobbies} 
+        onHobbySelect={handleHobbySelect} 
+      />
     },
     {
-      id: 2,
-      name: "Creative & Visual Arts",
-      icon: "brush",
-      color: "purple",
-      subcategories: [
-        { name: "Drawing", venues: "Studios, home, classes", popularity: 213 },
-        { name: "Painting", venues: "Art studios, outdoor locations", popularity: 195 },
-        { name: "Sculpting", venues: "Workshops, art centers", popularity: 97 },
-        { name: "Photography", venues: "Indoor/outdoor locations", popularity: 276 },
-        { name: "Digital Art", venues: "Home studio, tech spaces", popularity: 189 },
-        { name: "Printmaking", venues: "Print studios, workshops", popularity: 76 },
-        { name: "Calligraphy", venues: "Home, workshops", popularity: 104 },
-      ],
+      id: 'avatar',
+      title: 'Select Your Avatar',
+      description: 'Choose an avatar type that represents you',
+      component: <AvatarSelector 
+        selectedAvatar={selectedAvatar} 
+        onSelectAvatar={setSelectedAvatar} 
+      />
     },
-    {
-      id: 3,
-      name: "Technology",
-      icon: "laptop",
-      color: "green",
-      subcategories: [
-        { name: "Programming", venues: "Home office, co-working spaces", popularity: 243 },
-        { name: "Gaming", venues: "Home, gaming centers", popularity: 325 },
-        { name: "3D Printing", venues: "Maker spaces, home workshop", popularity: 132 },
-        { name: "AI/ML", venues: "Online platforms, tech labs", popularity: 186 },
-        { name: "Robotics", venues: "Labs, workshops", popularity: 146 },
-        { name: "Web Design", venues: "Home office, studios", popularity: 171 },
-        { name: "Mobile Apps", venues: "Tech hubs, home office", popularity: 153 },
-      ],
-    },
-    {
-      id: 4,
-      name: "Outdoors",
-      icon: "terrain",
-      color: "yellow",
-      subcategories: [
-        { name: "Hiking", venues: "Trails, mountains, parks", popularity: 265 },
-        { name: "Camping", venues: "Campgrounds, wilderness areas", popularity: 178 },
-        { name: "Fishing", venues: "Lakes, rivers, ocean", popularity: 134 },
-        { name: "Gardening", venues: "Home garden, community plots", popularity: 217 },
-        { name: "Bird Watching", venues: "Parks, nature reserves", popularity: 86 },
-        { name: "Kayaking", venues: "Lakes, rivers, ocean", popularity: 112 },
-        { name: "Mountain Biking", venues: "Trails, bike parks", popularity: 143 },
-      ],
-    },
-    {
-      id: 5,
-      name: "Food & Cooking",
-      icon: "restaurant",
-      color: "red",
-      subcategories: [
-        { name: "Baking", venues: "Home kitchen, bakeries", popularity: 254 },
-        { name: "Grilling", venues: "Backyard, parks", popularity: 187 },
-        { name: "Wine Tasting", venues: "Wineries, tasting rooms", popularity: 163 },
-        { name: "Meal Prep", venues: "Home kitchen, cooking schools", popularity: 211 },
-        { name: "International Cuisine", venues: "Kitchen, cooking classes", popularity: 178 },
-        { name: "Coffee Brewing", venues: "Home, coffee shops", popularity: 194 },
-        { name: "Food Photography", venues: "Studio, restaurants", popularity: 113 },
-      ],
-    },
+    // Add more steps here
   ];
-
-  // Toggle subcategory selection
-  const toggleSubcategory = useCallback((categoryId: number, subcategory: string) => {
-    setSelectedActivities(prev => {
-      const currentSubs = prev[categoryId] || [];
-      const newSubs = currentSubs.includes(subcategory)
-        ? currentSubs.filter(sub => sub !== subcategory)
-        : [...currentSubs, subcategory];
   
-      const updated = {
-        ...prev,
-        [categoryId]: newSubs.length > 0 ? newSubs : []
-      };
-  
-      // Remove empty arrays
-      if (newSubs.length === 0) {
-        delete updated[categoryId];
+  // Handle hobby selection
+  const handleHobbySelect = useCallback((category: string, subcategory: string) => {
+    setSelectedHobbies(prev => {
+      const prevSubcategories = prev[category] || [];
+      
+      // If subcategory already selected, remove it
+      if (prevSubcategories.includes(subcategory)) {
+        const updatedSubcategories = prevSubcategories.filter(sub => sub !== subcategory);
+        
+        // If no subcategories left, remove category
+        if (updatedSubcategories.length === 0) {
+          const { [category]: removed, ...rest } = prev;
+          return rest;
+        }
+        
+        return {
+          ...prev,
+          [category]: updatedSubcategories
+        };
       }
-  
-      return updated;
+      
+      // Add subcategory
+      return {
+        ...prev,
+        [category]: [...prevSubcategories, subcategory]
+      };
     });
   }, []);
   
-  // Check if any activities are selected
-  const hasSelections = Object.values(selectedActivities).some(
-    subs => subs?.length > 0
-  );
-
-  // Handle continue button press
-  const handleContinue = async () => {
-    if (!hasSelections) return;
-    
+  // Complete onboarding
+  const handleComplete = async () => {
     try {
-      // Show loading indicator
-      setIsSubmitting(true);
+      // Save onboarding data
+      await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
+      await AsyncStorage.setItem('userHobbies', JSON.stringify(selectedHobbies));
+      await AsyncStorage.setItem('userAvatar', selectedAvatar);
       
-      // Prepare an array of promises for joining hobbies
-      const promises: Promise<any>[] = [];
+      // Dispatch action to update Redux state
+      dispatch(completeOnboarding({
+        hobbies: selectedHobbies,
+        avatar: selectedAvatar
+      }));
       
-      // For each selected activity, create a promise to join the hobby
-      Object.entries(selectedActivities).forEach(([categoryId, subcategories]) => {
-        subcategories.forEach(subcategory => {
-          // Create a hobby ID from category and subcategory name
-          // In a real app, this would be an actual ID from your API
-          const hobbyId = `${categoryId}-${subcategory.toLowerCase().replace(/\s+/g, '-')}`;
-          
-          // Add the promise to join this hobby
-          promises.push(dispatch(joinHobby(hobbyId)));
-        });
-      });
-      
-      // Wait for all hobby join operations to complete
-      await Promise.all(promises);
-      
-      // Call the completion callback
-      onComplete(selectedActivities);
+      // Navigate to home screen
+      navigation.replace('home/map');
     } catch (error) {
-      console.error("Error saving hobby selections:", error);
-      // Show error message
-      Alert.alert(
-        "Error", 
-        "Failed to save your hobby preferences. Please try again."
-      );
-    } finally {
-      // Reset loading state regardless of outcome
-      setIsSubmitting(false);
+      console.error('Error completing onboarding:', error);
     }
   };
-
-  // Generate color styles based on category color
-  const getColorStyles = useCallback((color: string, isSelected: boolean) => {
-    if (!isSelected) return null;
-
-    const colorMap: Record<string, any> = {
-      blue: { bg: '#EBF5FF', border: '#3498DB', text: '#3498DB' },
-      purple: { bg: '#F3E8FF', border: '#9B59B6', text: '#9B59B6' },
-      green: { bg: '#E6F6E6', border: '#2ECC71', text: '#2ECC71' },
-      yellow: { bg: '#FEF9E7', border: '#F1C40F', text: '#F1C40F' },
-      red: { bg: '#FDEDEC', border: '#E74C3C', text: '#E74C3C' },
-    };
-
-    return colorMap[color] || { bg: '#F0F0F0', border: '#BBBBBB', text: '#BBBBBB' };
-  }, []);
-
-  // Memoized Activity Category component
-  const ActivityCard = memo(({ category }: { category: ActivityCategory }) => {
-    const isSelected = selectedActivities[category.id]?.length > 0;
-    const colorStyles = getColorStyles(category.color, isSelected);
-    
-    return (
-      <View style={styles.categoryContainer}>
-        <Surface
-          style={[
-            styles.categoryHeader,
-            isSelected ? {
-              backgroundColor: colorStyles.bg,
-              borderColor: colorStyles.border
-            } : null
-          ]}
-        >
-          <View style={styles.categoryTitleContainer}>
-            <MaterialIcons
-              name={category.icon as any}
-              size={24}
-              color={isSelected ? colorStyles.text : '#BBBBBB'}
-            />
-            <Text
-              style={[
-                styles.categoryTitle,
-                isSelected ? { color: colorStyles.text } : null
-              ]}
-            >
-              {category.name}
-            </Text>
-          </View>
-          {isSelected && (
-            <Text style={styles.selectedCount}>
-              {selectedActivities[category.id]?.length} selected
-            </Text>
-          )}
-        </Surface>
-        
-        <View style={styles.subcategoriesGrid}>
-          {category.subcategories.map(sub => (
-            <TouchableOpacity
-              key={sub.name}
-              style={[
-                styles.subcategoryItem,
-                selectedActivities[category.id]?.includes(sub.name)
-                  ? {
-                      backgroundColor: colorStyles?.bg,
-                      borderColor: colorStyles?.border
-                    }
-                  : null
-              ]}
-              onPress={() => toggleSubcategory(category.id, sub.name)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.subcategoryName,
-                  selectedActivities[category.id]?.includes(sub.name)
-                    ? { color: colorStyles?.text }
-                    : null
-                ]}
-              >
-                {sub.name}
-              </Text>
-              <Text style={styles.venuesText}>{sub.venues}</Text>
-              
-              {/* Popularity indicator */}
-              <View style={styles.popularityContainer}>
-                <MaterialIcons name="people" size={12} color="rgba(255,255,255,0.5)" />
-                <Text style={styles.popularityText}>
-                  {sub.popularity || Math.floor(Math.random() * 300) + 50} members
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    );
-  });
-
+  
+  // Check if can proceed to next step
+  const canProceed = () => {
+    switch (currentStep) {
+      case 0: // Hobbies step
+        return Object.keys(selectedHobbies).length > 0;
+      case 1: // Avatar step
+        return !!selectedAvatar;
+      default:
+        return true;
+    }
+  };
+  
+  // Navigate to next step
+  const goToNextStep = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleComplete();
+    }
+  };
+  
+  // Navigate to previous step
+  const goToPreviousStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+  
+  // Current step data
+  const currentStepData = steps[currentStep];
+  
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#1E1E2A" />
       
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Choose Your Favorite Activities</Text>
-        <Text style={styles.headerSubtitle}>
-          Select activities you enjoy to personalize your experience
-        </Text>
+      {/* Progress bar */}
+      <View style={styles.progressContainer}>
+        {steps.map((step, index) => (
+          <View 
+            key={step.id}
+            style={[
+              styles.progressDot,
+              index === currentStep && styles.progressDotActive,
+              index < currentStep && styles.progressDotCompleted
+            ]}
+          />
+        ))}
       </View>
       
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {activityCategories.map(category => (
-          <ActivityCard key={category.id} category={category} />
-        ))}
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{currentStepData.title}</Text>
+        <Text style={styles.headerSubtitle}>{currentStepData.description}</Text>
+      </View>
+      
+      {/* Content */}
+      <ScrollView contentContainerStyle={styles.content}>
+        {currentStepData.component}
       </ScrollView>
       
+      {/* Navigation buttons */}
       <View style={styles.footer}>
-        <Button
-          mode="contained"
-          disabled={!hasSelections || isSubmitting}
-          onPress={handleContinue}
-          style={styles.continueButton}
-          contentStyle={styles.buttonContent}
-          loading={isSubmitting}
+        {currentStep > 0 && (
+          <TouchableOpacity style={styles.backButton} onPress={goToPreviousStep}>
+            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+        )}
+        
+        <TouchableOpacity
+          style={[
+            styles.nextButton,
+            !canProceed() && styles.nextButtonDisabled
+          ]}
+          onPress={goToNextStep}
+          disabled={!canProceed()}
         >
-          {isSubmitting ? "Saving..." : 
-            hasSelections ? "Continue" : "Select at least one activity"}
-        </Button>
+          <Text style={styles.nextButtonText}>
+            {currentStep < steps.length - 1 ? 'Next' : 'Get Started'}
+          </Text>
+          <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -336,12 +194,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1E1E2A',
   },
+  progressContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  progressDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 4,
+  },
+  progressDotActive: {
+    backgroundColor: '#3498DB',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  progressDotCompleted: {
+    backgroundColor: '#2ECC71',
+  },
   header: {
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 20 : 40,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 8,
@@ -350,92 +229,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.7)',
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  categoryContainer: {
-    marginBottom: 24,
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    marginBottom: 12,
-  },
-  categoryTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  categoryTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 12,
-  },
-  selectedCount: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  subcategoriesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  subcategoryItem: {
-    width: (width - 48) / 2,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    marginBottom: 16,
-  },
-  subcategoryName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  venuesText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.5)',
-    marginBottom: 6,
-  },
-  popularityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  popularityText: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
-    marginLeft: 4,
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: 'rgba(30, 30, 42, 0.95)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
-  continueButton: {
-    borderRadius: 8,
-    backgroundColor: '#3498DB',
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  buttonContent: {
-    height: 48,
+  backButtonText: {
+    color: '#FFFFFF',
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  nextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3498DB',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  nextButtonDisabled: {
+    backgroundColor: 'rgba(52, 152, 219, 0.5)',
+  },
+  nextButtonText: {
+    color: '#FFFFFF',
+    marginRight: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

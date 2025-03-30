@@ -28,6 +28,34 @@ const getAllHobbies = async (req, res) => {
   }
 };
 
+// Get hobbies by category
+const getHobbiesByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    let query = {};
+    
+    if (category && category !== "all") {
+      query.category = category;
+    }
+    
+    const hobbies = await Hobby.find(query)
+      .populate('creator', 'name avatar')
+      .sort({ popularity: -1 });
+    
+    res.status(200).json({
+      success: true,
+      count: hobbies.length,
+      data: hobbies
+    });
+  } catch (error) {
+    console.error("Error fetching hobbies by category:", error);
+    res.status(500).json({
+      success: false,
+      error: "Server Error"
+    });
+  }
+};
+
 /**
  * Get a single hobby
  * @route GET /api/v1/hobbies/:id
@@ -66,25 +94,67 @@ const getHobby = async (req, res) => {
  * @route POST /api/v1/hobbies
  * @access Private
  */
-const createHobby = async (req, res) => {
+// Publish a new hobby
+const publishHobby = async (req, res) => {
   try {
-    const { name, description, category, tags, image } = req.body;
-
-    if (!name || !description) {
+    const { name, description, category, subcategory, tags } = req.body;
+    
+    // Check if hobby already exists
+    const existingHobby = await Hobby.findOne({ 
+      name: { $regex: new RegExp(`^${name}$`, 'i') } 
+    });
+    
+    if (existingHobby) {
       return res.status(400).json({
         success: false,
-        error: "Please provide name and description"
+        error: "A hobby with this name already exists"
       });
     }
-
-    const hobby = await Hobby.create({ 
-      name, 
-      description, 
-      category, 
-      tags, 
-      image,
+    
+    // Create new hobby
+    const hobby = await Hobby.create({
+      name,
+      description,
+      category,
+      subcategory,
+      tags: tags || [],
       creator: req.user.id
     });
+    
+    // Add hobby to user's hobbies
+    await User.findByIdAndUpdate(req.user.id, {
+      $push: {
+        hobbies: {
+          hobby: hobby._id,
+          proficiencyLevel: "beginner",
+          joinedAt: new Date()
+        }
+      }
+    });
+    
+    // Send notification to all users
+    try {
+      // Find all users except creator
+      const users = await User.find({ _id: { $ne: req.user.id } }).select('_id');
+      
+      // Create notification for each user
+      const notifications = users.map(user => ({
+        recipient: user._id,
+        type: 'new_hobby',
+        title: 'New Hobby Published',
+        message: `${req.user.name} published a new hobby: ${hobby.name}`,
+        sender: req.user.id,
+        hobby: hobby._id,
+      }));
+      
+      // Insert all notifications
+      if (notifications.length > 0) {
+        await Notification.insertMany(notifications);
+      }
+    } catch (notifError) {
+      console.error('Error creating notifications:', notifError);
+      // Continue even if notifications fail
+    }
 
     const response = {
       success: true,
@@ -365,7 +435,7 @@ const getNearbyHobbies = async (req, res) => {
 module.exports = {
   getAllHobbies,
   getHobby,
-  createHobby,
+  publishHobby,
   updateHobby,
   deleteHobby,
   joinHobby,
