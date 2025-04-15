@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import EventDetail from '../../src/components/events/EventDetail';
+import EventDetail from '../../../Hubdome/src/components/events/EventDetail';
 
 export default function EventDetailScreen() {
   const router = useRouter();
@@ -11,11 +11,11 @@ export default function EventDetailScreen() {
     navigate: (screen: string, params?: any) => {
       if (screen.includes('Detail')) {
         router.push({
-          pathname: `./home/${screen.toLowerCase().replace('detail', '-detail')}`,
+          pathname: `./${screen.toLowerCase().replace('detail', '-detail')}`, //removed /home/
           params: params
         });
       } else {
-        router.push(`./home/${screen.toLowerCase()}`);
+        router.push(`./${screen.toLowerCase()}`);
       }
     },
     goBack: () => router.back()

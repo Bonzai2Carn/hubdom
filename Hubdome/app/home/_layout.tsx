@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Stack, usePathname, useRouter } from 'expo-router';
-import BottomNavigation, { TabName } from '../../src/components/navigations/BottomNavigation';
-import CreateEventModal from '../../src/components/events/CreateEventModal';
+import BottomNavigation, { TabName } from '../../../Hubdome/src/components/navigations/BottomNavigation';
+import CreateEventModal from '../../../Hubdome/src/components/events/CreateEventModal';
 
 export default function HomeLayout() {
   const pathname = usePathname();
@@ -21,7 +21,7 @@ export default function HomeLayout() {
 
   // Handle tab changes
   const handleTabChange = (tab: TabName) => {
-    router.push(`./home/${tab}`);
+    router.push(`./home/${tab}`); //home/
   };
 
   // Handle create button click

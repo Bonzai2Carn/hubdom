@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import UserProfileScreen from '../../src/screens/users/UserProfileScreen';
+import UserProfileScreen from '../../../Hubdome/src/screens/users/UserProfileScreen';
 
 export default function UserProfile() {
   const router = useRouter();
@@ -11,11 +11,11 @@ export default function UserProfile() {
     navigate: (screen: string, params?: any) => {
       if (screen.includes('Detail')) {
         router.push({
-          pathname: `./home/${screen.toLowerCase().replace('detail', '-detail')}`,
+          pathname: `./${screen.toLowerCase().replace('detail', '-detail')}`,
           params: params
         });
       } else {
-        router.push(`./home/${screen.toLowerCase()}`);
+        router.push(`./${screen.toLowerCase()}`);
       }
     },
     goBack: () => router.back()

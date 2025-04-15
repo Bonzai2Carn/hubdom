@@ -1,34 +1,17 @@
-// app/onboarding.tsx
 import React from 'react';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import OnboardingScreen, { OnboardingData } from '../src/screens/onboarding/OnboardingScreen';
-import { useAppDispatch } from '../src/redux/hooks';
-import { setUser } from '../src/redux/slices/userSlice';
-import authService from '../src/services/authService';
+import OnboardingScreen from '../../Hubdome/src/screens/onboarding/OnboardingScreen';
+import { Alert } from 'react-native';
 
 export default function Onboarding() {
   const router = useRouter();
-  const dispatch = useAppDispatch();
 
   // Handle onboarding completion
-  const handleOnboardingComplete = async (data: OnboardingData) => {
+  const handleOnboardingComplete = async (selectedActivities: Record<number, string[]>) => {
     try {
-      // Save onboarding data to backend
-      const response = await authService.updateUserProfile({
-        hobbies: flattenSelectedActivities(data.selectedActivities),
-        avatarType: data.avatarType,
-        displayName: data.displayName,
-        notificationPreferences: data.notificationPreferences,
-      });
-      
-      // Update user in Redux
-      if (response && response.user) {
-        dispatch(setUser({
-          ...response.user,
-          avatarType: data.avatarType,
-        }));
-      }
+      // Save selected activities (could be saved to API in the future)
+      await AsyncStorage.setItem('userActivities', JSON.stringify(selectedActivities));
       
       // Mark onboarding as completed
       await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
@@ -37,23 +20,8 @@ export default function Onboarding() {
       router.replace('./home/map');
     } catch (error) {
       console.error('Error completing onboarding:', error);
-      // You might want to handle errors differently
-      await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
-      router.replace('./home/map');
+      Alert.alert ('')
     }
-  };
-
-  // Helper function to flatten selected activities into string array
-  const flattenSelectedActivities = (selectedActivities: Record<number, string[]>): string[] => {
-    const flattened: string[] = [];
-    Object.values(selectedActivities).forEach(activities => {
-      activities.forEach(activity => {
-        if (!flattened.includes(activity)) {
-          flattened.push(activity);
-        }
-      });
-    });
-    return flattened;
   };
 
   return (

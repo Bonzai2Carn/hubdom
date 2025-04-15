@@ -17,12 +17,35 @@ interface AuthState {
   error: string | null;
 }
 
+interface NotificationPreferences {
+  events: boolean;
+  messages: boolean;
+  nearbyActivities: boolean;
+}
+
+interface OnboardingState {
+  hobbies: Record<string, string[]>;
+  avatar: string;
+  locationPermission: boolean;
+  notificationPreferences: NotificationPreferences;
+  hasCompletedOnboarding: boolean;
+}
+
 // Initial state
-const initialState: AuthState = {
+const initialState: AuthState & OnboardingState = {
   isAuthenticated: false,
   user: null,
   loading: false,
   error: null,
+  hobbies: {},
+  avatar: 'explorer',
+  locationPermission: false,
+  notificationPreferences: {
+    events: true,
+    messages: true,
+    nearbyActivities: true
+  },
+  hasCompletedOnboarding: false
 };
 
 // Async thunks
@@ -35,15 +58,15 @@ export const loginUser = createAsyncThunk<
   async (loginData, { rejectWithValue }) => {
     try {
       const response = await authService.login(loginData);
+      if (!response.user) {
+        throw new Error('No user data received');
+      }
       return response.user;
     } catch (error) {
       console.error("Login error:", error);
-
-      let errorMessage = "Login failed. Please check your credentials.";
-      if (error instanceof Error) { 
-      errorMessage = error.message; 
-      }
-      return rejectWithValue(errorMessage);
+      return rejectWithValue(
+        error instanceof Error ? error.message : "Login failed. Please check your credentials."
+      );
     }
   }
 );
@@ -57,12 +80,14 @@ export const registerUser = createAsyncThunk<
   async (registerData, { rejectWithValue }) => {
     try {
       const response = await authService.register(registerData);
+      if (!response.user) {
+        throw new Error('No user data received');
+      }
       return response.user;
     } catch (error) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Registration failed. Please try again.';
-      return rejectWithValue(errorMessage);
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Registration failed. Please try again.'
+      );
     }
   }
 );
@@ -76,12 +101,16 @@ export const socialLogin = createAsyncThunk<
   async (socialAuthData, { rejectWithValue }) => {
     try {
       const response = await authService.socialAuth(socialAuthData);
-      return response.user;
+      if (!response.user || !response.user.id) {
+        throw new Error('Invalid user data received');
+      }
+      return response.user as User;
     } catch (error) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : `${socialAuthData.provider} login failed. Please try again.`;
-      return rejectWithValue(errorMessage);
+      return rejectWithValue(
+        error instanceof Error 
+          ? error.message 
+          : `${socialAuthData.provider} login failed. Please try again.`
+      );
     }
   }
 );
@@ -94,16 +123,15 @@ export const fetchCurrentUser = createAsyncThunk<
   'auth/fetchCurrentUser',
   async (_, { rejectWithValue }) => {
     try {
-      return await authService.getCurrentUser();
+      const user = await authService.getCurrentUser();
+      return user;
     } catch (error) {
       if ((error as ApiError).status === 401) {
-        // Token expired or invalid, clear it
         await AsyncStorage.removeItem('authToken');
       }
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Failed to fetch user data';
-      return rejectWithValue(errorMessage);
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Failed to fetch user data'
+      );
     }
   }
 );
@@ -117,11 +145,11 @@ export const logoutUser = createAsyncThunk<
   async (_, { rejectWithValue }) => {
     try {
       await authService.logout();
+      return;
     } catch (error) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Logout failed';
-      return rejectWithValue(errorMessage);
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Logout failed'
+      );
     }
   }
 );
@@ -141,6 +169,18 @@ const authSlice = createSlice({
       state.user = action.payload;
       state.isAuthenticated = !!action.payload;
     },
+    completeOnboarding: (state, action: PayloadAction<{
+      hobbies: Record<string, string[]>;
+      avatar: string;
+      locationPermission: boolean;
+      notificationPreferences: NotificationPreferences;
+    }>) => {
+      state.hobbies = action.payload.hobbies;
+      state.avatar = action.payload.avatar;
+      state.locationPermission = action.payload.locationPermission;
+      state.notificationPreferences = action.payload.notificationPreferences;
+      state.hasCompletedOnboarding = true;
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -156,10 +196,6 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        // Check if action.payload is an object and extract the message
-        // state.error = typeof action.payload === 'object' 
-        //   ? (action.payload.error || action.payload.message || 'Login failed') 
-        //   : (action.payload || 'Login failed');
         state.error = action.payload || 'Login failed';
       })
       
@@ -217,7 +253,7 @@ const authSlice = createSlice({
 });
 
 // Export actions
-export const { clearError, setAuthenticated, setUser } = authSlice.actions;
+export const { clearError, setAuthenticated, setUser, completeOnboarding } = authSlice.actions;
 
 // Export reducer
 export default authSlice.reducer;

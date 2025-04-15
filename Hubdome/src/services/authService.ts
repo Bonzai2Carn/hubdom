@@ -1,35 +1,33 @@
 // src/services/authService.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import API from './api';
-import { User } from '../types/interfaces';
+import API from '../services/api';
 
-// Storage keys
-const AUTH_TOKEN_KEY = 'authToken';
-const REFRESH_TOKEN_KEY = 'refreshToken';
-const USER_KEY = 'user';
+const USER_KEY = 'user_data';
+const TOKEN_KEY = 'auth_token';
 
-/**
- * Login request interface
- */
-export interface LoginRequest {
-  username?: string;
+export interface User {
+  id?: string;
   email?: string;
+  username?: string;
+  name?: string;
+  avatarType?: string;
+  role: string;
+  createdAt: string;
+}
+
+export interface LoginRequest {
+  email?: string;
+  username?: string;
   password: string;
 }
 
-/**
- * Register request interface
- */
 export interface RegisterRequest {
-  username: string;
-  email: string;
-  password: string;
   name: string;
+  email: string;
+  username: string;
+  password: string;
 }
 
-/**
- * Social auth request interface
- */
 export interface SocialAuthRequest {
   provider: 'google' | 'facebook' | 'twitter';
   token: string;
@@ -37,246 +35,108 @@ export interface SocialAuthRequest {
   name?: string;
 }
 
-/**
- * Auth response interface
- */
-export interface AuthResponse {
-  user: User;
-  tokens: {
-    token: string;
-    refreshToken?: string;
-  };
-}
-
 export interface UserProfileUpdate {
-  displayName?: string;
+  name?: string;
+  email?: string;
+  username?: string;
   avatarType?: string;
-  bio?: string;
-  hobbies?: string[];
-  notificationPreferences?: {
-    events?: boolean;
-    messages?: boolean;
-    nearbyActivities?: boolean;
-  };
 }
 
-/**
- * Auth service for handling authentication
- */
-class AuthService {
-  /**
-   * Login with email/username and password
-   */
-  public async login(loginData: LoginRequest): Promise<AuthResponse> {
+export interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  error?: string;
+  data?: T;
+  user?: User;
+}
+
+export class AuthService {
+  public async login(credentials: LoginRequest): Promise<ApiResponse<User>> {
     try {
-      const response = await API.post<AuthResponse>('/auth/login', loginData);
-      
-      // Save auth data
-      await this.saveAuthData(response);
-      
+      const response = await API.post<ApiResponse<User>>('/auth/login', credentials);
+      if (response.success && response.user) {
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      }
       return response;
     } catch (error) {
-      const errorMessage = error instanceof Error
-        ? error.message 
-        : 'Login failed. Please check your credentials.';
       console.error('Login error:', error);
-      
-      throw new Error(errorMessage);
+      throw new Error(error instanceof Error ? error.message : 'Login failed');
     }
   }
-  
-  /**
-   * Register a new user
-   */
-  public async register(registerData: RegisterRequest): Promise<AuthResponse> {
+
+  public async register(userData: RegisterRequest): Promise<ApiResponse<User>> {
     try {
-      const response = await API.post<AuthResponse>('/auth/register', registerData);
-      
-      // Save auth data
-      await this.saveAuthData(response);
-      
+      const response = await API.post<ApiResponse<User>>('/auth/register', userData);
+      if (response.success && response.user) {
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      }
       return response;
     } catch (error) {
       console.error('Registration error:', error);
-      throw error;
+      throw new Error(error instanceof Error ? error.message : 'Registration failed');
     }
   }
-  
-  /**
-   * Authenticate with social provider
-   */
-  public async socialAuth(socialAuthData: SocialAuthRequest): Promise<AuthResponse> {
+
+  public async socialAuth(socialData: SocialAuthRequest): Promise<ApiResponse<User>> {
     try {
-      const response = await API.post<AuthResponse>('/auth/social', socialAuthData);
-      
-      // Save auth data
-      await this.saveAuthData(response);
-      
+      const response = await API.post<ApiResponse<User>>('/api/v1/auth/social', socialData);
+      if (response.success && response.user) {
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
+      }
       return response;
     } catch (error) {
       console.error('Social auth error:', error);
-      throw error;
+      throw new Error(error instanceof Error ? error.message : 'Social authentication failed');
     }
   }
-  
-  /**
-   * Get current user data
-   */
+
   public async getCurrentUser(): Promise<User | null> {
     try {
-      // Check if we have a token
-      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token) return null;
-
-      // Try to get from the API
-      const response = await API.get<AuthResponse>('/auth/me');
-      
-      if (response && response.user) {
-        // Also save any new tokens
-        if (response.tokens && response.tokens.token) {
-          await AsyncStorage.setItem(AUTH_TOKEN_KEY, response.tokens.token);
-          
-          if (response.tokens.refreshToken) {
-            await AsyncStorage.setItem(REFRESH_TOKEN_KEY, response.tokens.refreshToken);
-          }
-        }
-        
-        // Save user data
-        await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
-        return response.user;
-      }
-      
-      return null;
+      const userJson = await AsyncStorage.getItem(USER_KEY);
+      return userJson ? JSON.parse(userJson) : null;
     } catch (error) {
-      console.error('Error fetching current user:', error);
-      
-      // Check if the error is a 401 Unauthorized
-      if (typeof error === 'object' && error !== null && 'status' in error && (error as any).status === 401) {
-        // Clear auth data and force re-login
-        await this.clearAuthData();
-      }
-      
-      return null;
+      console.error('Get current user error:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to get current user');
     }
   }
-  
-  /**
-   * Logout user
-   */
+
   public async logout(): Promise<void> {
     try {
-      // Try to call logout on the server
-      try {
-        await API.post('/auth/logout');
-      } catch (error) {
-        // Continue with client-side logout even if server logout fails
-        console.warn('Server logout failed, proceeding with client-side logout');
-      }
+      await AsyncStorage.multiRemove([USER_KEY, TOKEN_KEY]);
+      await API.post('/api/v1/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw new Error(error instanceof Error ? error.message : 'Logout failed');
+    }
+  }
 
-      // Clear local storage
-      await this.clearAuthData();
-    } catch (error) {
-      console.error('Error during logout:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Check if user is authenticated
-   */
-  public async isAuthenticated(): Promise<boolean> {
+  public async updateUserProfile(profileData: UserProfileUpdate): Promise<ApiResponse<User>> {
     try {
-      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-      return !!token;
-    } catch (error) {
-      console.error('Error checking authentication status:', error);
-      return false;
-    }
-  }
-  
-  /**
-   * Refresh authentication token
-   */
-  public async refreshToken(refreshToken: string): Promise<{tokens: {token: string, refreshToken?: string}}> {
-    try {
-      const response = await API.post<{tokens: {token: string, refreshToken?: string}}>('/auth/refresh-token', { refreshToken });
-      
-      // Save new tokens
-      if (response.tokens && response.tokens.token) {
-        await AsyncStorage.setItem(AUTH_TOKEN_KEY, response.tokens.token);
-        
-        if (response.tokens.refreshToken) {
-          await AsyncStorage.setItem(REFRESH_TOKEN_KEY, response.tokens.refreshToken);
-        }
+      const response = await API.put<ApiResponse<User>>('/api/v1/users/profile', profileData);
+      if (response.success && response.user) {
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(response.user));
       }
-      
-      return response;
-    } catch (error) {
-      console.error('Error refreshing token:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Save authentication data
-   */
-  private async saveAuthData(authResponse: AuthResponse): Promise<void> {
-    try {
-      const { user, tokens } = authResponse;
-      
-      // Validate data
-      if (!tokens || !tokens.token) {
-        console.error('Invalid auth response structure:', authResponse);
-        throw new Error('Invalid authentication response structure');
-      }
-      
-      // Save tokens
-      await AsyncStorage.setItem(AUTH_TOKEN_KEY, tokens.token);
-      
-      if (tokens.refreshToken) {
-        await AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-      }
-      
-      // Save user data
-      if (user) {
-        await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
-      }
-    } catch (error) {
-      console.error('Error saving auth data:', error);
-      throw error;
-    }
-  }
-  
-  public async updateUserProfile(profileData: UserProfileUpdate): Promise<AuthResponse> {
-    try {
-      const response = await API.put<AuthResponse>('/users/profile', profileData);
-      
-      // Update user in storage
-      if (response && response.user) {
-        const userJson = await AsyncStorage.getItem(USER_KEY);
-        if (userJson) {
-          const user = JSON.parse(userJson);
-          const updatedUser = { ...user, ...response.user };
-          await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
-        }
-      }
-      
       return response;
     } catch (error) {
       console.error('Error updating user profile:', error);
-      throw error;
+      throw new Error(error instanceof Error ? error.message : 'Failed to update profile');
     }
   }
-  
-  /**
-   * Update user avatar
-   */
-  public async updateUserAvatar(avatarType: string): Promise<AuthResponse> {
+
+  public async updateUserAvatar(avatarType: string): Promise<ApiResponse<User>> {
     try {
-      const response = await API.put<AuthResponse>('/users/avatar', { avatarType });
-      
-      // Update user in storage
-      if (response && response.user) {
+      const validAvatarTypes = [
+        'Competitor', 'Visionary', 'Maestro', 'Strategist', 'Connector', 
+        'Gourmet', 'Chef', 'Explorer', 'Scholar', 'Maker', 'Curator', 
+        'Sage', 'Tinkerer', 'Animal Advocate', 'Wanderer', 'Digital Nomad'
+      ];
+
+      if (!validAvatarTypes.includes(avatarType)) {
+        throw new Error('Invalid avatar type');
+      }
+
+      const response = await API.put<ApiResponse<User>>('/api/v1/users/avatar', { avatarType });
+      if (response.success && response.user) {
         const userJson = await AsyncStorage.getItem(USER_KEY);
         if (userJson) {
           const user = JSON.parse(userJson);
@@ -284,23 +144,13 @@ class AuthService {
           await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
         }
       }
-      
       return response;
     } catch (error) {
       console.error('Error updating user avatar:', error);
-      throw error;
+      throw new Error(error instanceof Error ? error.message : 'Failed to update avatar');
     }
-  }
-  /**
-   * Clear all authentication data
-   */
-  private async clearAuthData(): Promise<void> {
-    await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
-    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
-    await AsyncStorage.removeItem(USER_KEY);
   }
 }
 
-// Create and export singleton instance
-const authService = new AuthService();
+export const authService = new AuthService();
 export default authService;

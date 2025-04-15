@@ -72,7 +72,7 @@ const AvatarSelection: React.FC<AvatarSelectionProps> = ({
                 { backgroundColor: item.color }
               ]}
             >
-              <MaterialIcons name={item.icon} size={24} color="#FFFFFF" />
+              <MaterialIcons name={item.icon as any} size={24} color="#FFFFFF" />
             </View>
             <Text style={styles.avatarName}>{item.id}</Text>
           </TouchableOpacity>

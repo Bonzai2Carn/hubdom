@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Redirect } from 'expo-router';
-import { useAppSelector } from '../src/redux/hooks';
+import { useAppSelector } from '../../Hubdome/src/redux/hooks';
 
 /**
  * This is the main entry point of the application

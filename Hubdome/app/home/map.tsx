@@ -1,5 +1,5 @@
 import React from 'react';
-import MapScreen from '../../src/screens/home/MapScreen';
+import MapScreen from '../../../Hubdome/src/screens/home/MapScreen';
 import { useRouter } from 'expo-router';
 
 export default function Map() {
@@ -12,30 +12,30 @@ export default function Map() {
       switch (screen) {
         case 'EventDetail':
           router.push({
-            pathname: './home/event-detail',
+            pathname: './event-detail',
             params: params
           });
           break;
         case 'HobbyDetail':
           router.push({
-            pathname: './home/hobby-detail',
+            pathname: './hobby-detail',
             params: params
           });
           break;
         case 'UserProfile':
           router.push({
-            pathname: './home/user-profile',
+            pathname: './user-profile',
             params: params
           });
           break;
         case 'Camera':
-          router.push('./home/camera');
+          router.push('./camera');
           break;
         case 'Audio':
-          router.push('./home/audio');
+          router.push('./audio');
           break;
         default:
-          router.push(`./home/${screen.toLowerCase()}`);
+          router.push(`./${screen.toLowerCase()}`);
       }
     },
     goBack: () => router.back()

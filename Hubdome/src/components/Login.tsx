@@ -121,14 +121,24 @@ const Login: React.FC<LoginProps> = ({ navigation }) => {
     return true;
   };
 
-  // Handle regular login
-  const handleLogin = async () => {
-    // Validate form
+  // Validate form
+  const validateForm = (): boolean => {
     const isEmailValid = validateEmail();
     const isPasswordValid = validatePassword();
+    return isEmailValid && isPasswordValid;
+  };
 
-    if (isEmailValid && isPasswordValid) {
-      dispatch(loginUser({ email, password }));
+  // Handle regular login
+  const handleLogin = async () => {
+    try {
+      // Validate form
+      if (!validateForm()) return;
+
+      await dispatch(loginUser({ email, password })).unwrap();
+    } catch (error) {
+      // Handle error properly
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      Alert.alert('Error', errorMessage);
     }
   };
 

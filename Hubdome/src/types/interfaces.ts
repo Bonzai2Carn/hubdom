@@ -124,12 +124,14 @@ export interface Hobby {
   name: string;
   description: string;
   image?: string;
-  category?: string;
+  category: string;
   popularity?: number;
   tags?: string[];
   creator?: string; // Matches the schema field type
   createdAt: string;
   updatedAt?: string;
+  membersCount: number; // Optional field to track the number of members in the hobby
+  eventsCount: number; // Optional field to track the number of events related to the hobby
 }
   
   export interface HobbyRequest {

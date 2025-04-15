@@ -1,5 +1,5 @@
 import React from 'react';
-import TeamsScreen from '../../src/screens/teams/TeamsScreen';
+import TeamsScreen from '../../../Hubdome/src/screens/teams/TeamsScreen';
 import { useRouter } from 'expo-router';
 
 export default function Communications() {

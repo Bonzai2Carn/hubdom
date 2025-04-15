@@ -7,13 +7,15 @@ import {
   ScrollView, 
   TouchableOpacity,
   FlatList,
+  ListRenderItem,
   Dimensions,
-  ActivityIndicator 
+  ActivityIndicator
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import { fetchHobbies } from '../../redux/slices/hobbySlice';
 import CreateHobbyModal from '../hobbies/CreateHobbyModal';
+import {Hobby} from '../../types/interfaces';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +24,15 @@ interface CanvasViewProps {
   onCategorySelect: (categoryId: string) => void;
   searchQuery: string;
 }
+
+// interface Hobby {
+//   id: string;
+//   name: string;
+//   description?: string;
+//   category: string;
+//   memberCount?: number;
+//   eventCount?: number;
+// }
 
 const CanvasView: React.FC<CanvasViewProps> = ({
   selectedCategory,
@@ -113,10 +124,9 @@ const CanvasView: React.FC<CanvasViewProps> = ({
   );
 
   // Render a hobby item
-  const renderHobbyItem = ({ item }) => (
+  const renderHobbyItem: ListRenderItem<Hobby> = ({ item }) => (
     <TouchableOpacity 
       style={styles.hobbyItem}
-      // src/components/discover/CanvasView.tsx - continued
       onPress={() => onHobbyPress(item)}
     >
       <View 
@@ -132,15 +142,15 @@ const CanvasView: React.FC<CanvasViewProps> = ({
         <View style={styles.statItem}>
           <MaterialIcons name="people" size={14} color="#BBBBBB" />
           <Text style={styles.statText}>
-            {item.memberCount || 0} members
+            {item.membersCount || 0} members
           </Text>
         </View>
         
-        {item.eventCount > 0 && (
+        {item.eventsCount > 0 && (
           <View style={styles.statItem}>
             <MaterialIcons name="event" size={14} color="#BBBBBB" />
             <Text style={styles.statText}>
-              {item.eventCount} events
+              {item.eventsCount} events
             </Text>
           </View>
         )}
@@ -151,24 +161,28 @@ const CanvasView: React.FC<CanvasViewProps> = ({
   // Get color based on category
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      'Sports and Fitness': '#F97316',
-      'Creative and Visual Arts': '#EC4899',
-      'Music and Performing Arts': '#8B5CF6',
-      'Gaming & Entertainment': '#3B82F6',
-      'Outdoor & Adventure': '#10B981',
-      'Cooking': '#F59E0B', 
-      'Technology': '#6366F1',
-      'Community Activities': '#14B8A6',
-      'Pet & Animal Enthusiasts': '#FB923C',
+      'Physical': '#F97316',
+      'Artistic': '#EC4899',
+      'Musical': '#8B5CF6',
+      'Tech and Gadgets': '#3B82F6',
+      'Outdoor': '#10B981',
+      'Culinary': '#F59E0B', 
+      'DIY and Craft': '#6366F1',
+      'Connection-Based': '#14B8A6',
+      'Spiritual and Mindfulness': '#FB923C',
       'Collections': '#64748B',
-      'Other': '#3498DB',
+      'Travel': '#3498DB',
+      'Games and Puzzles': '#22C55E',
+      'Mind': '#DB2777',
+      'Health': '#06B6D4',
+      'Money Making': '#0EA5E9',
     };
     
     return colors[category] || '#3498DB';
   };
 
   // Handle hobby item press
-  const onHobbyPress = (hobby) => {
+  const onHobbyPress = (hobby: Hobby) => {
     // Navigate to hobby detail screen
     // This should be provided by a prop in a real implementation
     console.log('Hobby pressed:', hobby);
@@ -262,15 +276,15 @@ const CanvasView: React.FC<CanvasViewProps> = ({
                     <View style={styles.statItem}>
                       <MaterialIcons name="people" size={14} color="#BBBBBB" />
                       <Text style={styles.statText}>
-                        {hobby.memberCount || 0}
+                        {hobby.membersCount || 0}
                       </Text>
                     </View>
                     
-                    {hobby.eventCount > 0 && (
+                    {hobby.eventsCount > 0 && (
                       <View style={styles.statItem}>
                         <MaterialIcons name="event" size={14} color="#BBBBBB" />
                         <Text style={styles.statText}>
-                          {hobby.eventCount}
+                          {hobby.eventsCount}
                         </Text>
                       </View>
                     )}

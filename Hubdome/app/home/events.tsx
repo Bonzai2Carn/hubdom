@@ -1,5 +1,5 @@
 import React from 'react';
-import EventsScreen from '../../src/screens/events/EventsScreen';
+import EventsScreen from '../../../Hubdome/src/screens/events/EventsScreen';
 import { useRouter } from 'expo-router';
 
 export default function Events() {
@@ -11,11 +11,11 @@ export default function Events() {
       // Map the old navigation paths to Expo Router paths
       if (screen.includes('Detail')) {
         router.push({
-          pathname: `./home/${screen.toLowerCase().replace('detail', '-detail')}`,
+          pathname: `./${screen.toLowerCase().replace('detail', '-detail')}`,
           params: params
         });
       } else {
-        router.push(`./home/${screen.toLowerCase()}`);
+        router.push(`./${screen.toLowerCase()}`);
       }
     },
     goBack: () => router.back()

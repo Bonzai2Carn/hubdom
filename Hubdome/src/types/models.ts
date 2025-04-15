@@ -5,7 +5,6 @@ export interface User {
   email: string;
   avatar?: string;
   bio?: string;
-  hobbies?: string[];
 }
 
 export interface Hobby {
@@ -15,10 +14,6 @@ export interface Hobby {
   category?: string;
   image?: string;
   tags?: string[];
-  members: string[];
-  isJoined?: boolean;
-  popularity?: number;
-  eventsCount?: number;
   createdAt: string;
 }
 

@@ -1,7 +1,7 @@
 import React from 'react';
-import ProfileScreen from '../../src/screens/profile/ProfileScreen';
+import ProfileScreen from '../../../Hubdome/src/screens/profile/ProfileScreen';
 import { useRouter } from 'expo-router';
-import { ScreenNavigationProp } from '../../src/screens/profile/ProfileScreen'; // adjust import as needed
+import { ScreenNavigationProp } from '../../../Hubdome/src/screens/profile/ProfileScreen'; // adjust import as needed
 
 export default function Profile() {
   const router = useRouter();
@@ -11,11 +11,11 @@ export default function Profile() {
     navigate: (screen: string, params?: any) => {
       if (screen.includes('Detail')) {
         router.push({
-          pathname: `./home/${screen.toLowerCase().replace('detail', '-detail')}`,
+          pathname: `./${screen.toLowerCase().replace('detail', '-detail')}`,
           params: params,
         });
       } else {
-        router.push(`./home/${screen.toLowerCase()}`);
+        router.push(`./${screen.toLowerCase()}`);
       }
     },
     goBack: () => router.back(),

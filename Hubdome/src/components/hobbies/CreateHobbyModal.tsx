@@ -23,17 +23,22 @@ interface CreateHobbyModalProps {
 }
 
 const CATEGORIES = [
-  'Sports and Fitness',
-  'Creative and Visual Arts',
-  'Music and Performing Arts',
-  'Gaming & Entertainment',
-  'Outdoor & Adventure',
-  'Cooking',
-  'Technology',
-  'Community Activities',
-  'Pet & Animal Enthusiasts',
-  'Collections',
-  'Other',
+  "artistic", 
+  "outdoor", 
+  "physical", 
+  "musical", 
+  "tech-and-gadgets",
+  "culinary", 
+  "diy-and-craft", 
+  "connection-based", 
+  "spiritual-and-mindfulness",
+  "scientific-and-intellectual", 
+  "games-and-puzzles", 
+  "collecting",
+  "travel", 
+  "mind", 
+  "health", 
+  "money-making",
 ];
 
 const CreateHobbyModal: React.FC<CreateHobbyModalProps> = ({

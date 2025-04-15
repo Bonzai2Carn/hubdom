@@ -28,7 +28,7 @@ import { ParamListBase } from "@react-navigation/native";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import eventService from "../../services/eventService";
 import { formatDate } from "../../utils/dateUtils";
-import { RootStackParamList } from "../../../app/types";
+import { RootStackParamList } from "../../../appv2/types";
 
 const { getEvent, joinEvent, leaveEvent } = eventService;
 

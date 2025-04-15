@@ -62,42 +62,27 @@ class ApiService {
   private refreshSubscribers: Array<(token: string) => void> = [];
   
   constructor() {
-    // Create axios instance with base configuration
+    // Fix base URL configuration
     this.client = axios.create({
-      baseURL: this.getBaseURL(),
-      timeout: 10000, // 10s timeout
+      // Change this to match your backend URL
+      baseURL: 'http://localhost:3000/api/v1', // or process.env.API_URL
+      timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    
-    // Set up request interceptor to add auth token
+
+    // Add interceptors for auth token handling
     this.client.interceptors.request.use(
       this.handleRequest,
       this.handleRequestError
     );
-    
+
     // Set up response interceptor for consistent format
     this.client.interceptors.response.use(
       this.handleResponse,
       this.handleResponseError
     );
-  }
-  
-  /**
-   * Get base URL based on platform
-   */
-  private getBaseURL(): string {
-    if (Platform.OS === 'android') {
-      // Android emulator runs in a separate VM, so localhost refers to the VM not your machine
-      return 'http://10.0.2.2:3000/api/v1';
-    } else if (Platform.OS === 'ios') {
-      // iOS simulator shares network with your machine
-      return 'http://localhost:3000/api/v1';
-    } else {
-      // For web or other platforms
-      return 'http://localhost:3000/api/v1';
-    }
   }
   
   /**

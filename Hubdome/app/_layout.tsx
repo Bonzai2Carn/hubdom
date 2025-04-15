@@ -6,15 +6,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Store
-import store from '../src/redux/store';
-import { useAppDispatch, useAppSelector } from '../src/redux/hooks';
-import { fetchCurrentUser } from '../src/redux/actions/authActions';
+import store from '../../Hubdome/src/redux/store';
+import { useAppDispatch, useAppSelector } from '../../Hubdome/src/redux/hooks';
+import { fetchCurrentUser } from '../../Hubdome/src/redux/actions/authActions';
 
 // Theme
-import { theme } from '../src/utils/theme';
+import { theme } from '../../Hubdome/src/utils/theme';
 
 // Components
-import LoadingScreen from '../src/screens/common/LoadingScreen';
+import LoadingScreen from '../../Hubdome/src/screens/common/LoadingScreen';
 
 // Wrapper component to handle authentication and app state
 const AppWrapper = () => {
