@@ -1,5 +1,5 @@
 // src/components/maps/MapViewComponent.tsx
-import React, { useRef, useState, useCallback, memo, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useState, useCallback, memo, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Map, { MapRef, Marker, NavigationControl } from '@vis.gl/react-maplibre';
@@ -14,6 +14,8 @@ interface MapViewComponentProps {
     longitude: number;
     latitude: number;
     zoom: number;
+    pitch?: number;     // Add optional pitch
+    bearing?: number;   // Add optional bearing
   };
   markers: MapMarker[];
   userLocation?: {
@@ -28,12 +30,12 @@ interface MapViewComponentProps {
 
 // Define public methods that can be called via ref
 export interface MapViewComponentHandle {
-  flyTo: (longitude: number, latitude: number, zoom?: number) => void;
+  flyTo: (options: { latitude: number; longitude: number; zoom?: number }) => void;
   zoomIn: () => void;
   zoomOut: () => void;
   recenter: () => void;
-  // rotateLeft: () => void;  // Add rotation methods
-  // rotateRight: () => void;
+  rotateTo: (angle: number) => void;
+  // Add any other required methods
 }
 
 
@@ -51,13 +53,13 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
 ) => {
   const mapRef = useRef<MapRef>(null);
   const [viewState, setViewState] = useState({
-    pitch: 0,
-    bearing: 0,
-});
+    pitch: initialViewState.pitch || 0,
+    bearing: initialViewState.bearing || 0,
+  });
   
   // Expose methods to parent component via ref
   useImperativeHandle(ref, () => ({
-    flyTo: (longitude: number, latitude: number, zoom = 14) => {
+    flyTo: ({ longitude, latitude, zoom = 14 }) => {
       if (mapRef.current) {
         const map = mapRef.current.getMap();
         map.flyTo({
@@ -92,6 +94,12 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
           zoom: initialViewState.zoom,
           essential: true
         });
+      }
+    },
+    rotateTo: (angle: number) => {
+      if (mapRef.current) {
+        const map = mapRef.current.getMap();
+        map.rotateTo(angle, { duration: 300 });
       }
     }
   }));
@@ -162,6 +170,54 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
       onStyleChange();
     }
   }, [onStyleChange]);
+
+  // Add these rotation control functions
+  const rotateLeft = useCallback(() => {
+    if (mapRef.current) {
+      const map = mapRef.current.getMap();
+      const currentBearing = map.getBearing();
+      const newBearing = currentBearing - 15;
+      
+      map.rotateTo(newBearing, { duration: 300 });
+      
+      setViewState(prev => ({
+        ...prev,
+        bearing: newBearing
+      }));
+    }
+  }, []);
+
+  const rotateRight = useCallback(() => {
+    if (mapRef.current) {
+      const map = mapRef.current.getMap();
+      const currentBearing = map.getBearing();
+      const newBearing = currentBearing + 15;
+      
+      map.rotateTo(newBearing, { duration: 300 });
+      
+      setViewState(prev => ({
+        ...prev,
+        bearing: newBearing
+      }));
+    }
+  }, []);
+
+  // Add useEffect for initial isometric view
+  useEffect(() => {
+    if (mapRef.current) {
+      const map = mapRef.current.getMap();
+      
+      // Wait for map to be loaded
+      map.once('load', () => {
+        // Set initial isometric view
+        map.easeTo({
+          pitch: initialViewState.pitch || 60,
+          bearing: initialViewState.bearing || 15,
+          duration: 1000
+        });
+      });
+    }
+  }, [initialViewState.pitch, initialViewState.bearing]);
 
   // Render a map marker
   const renderMarker = useCallback((marker: MapMarker) => {
@@ -260,6 +316,23 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
           />
         </TouchableOpacity>
         <TouchableOpacity
+          style={styles.mapControlButton}
+          onPress={rotateLeft}
+          accessibilityLabel="Rotate left"
+          accessibilityHint="Rotates the map counter-clockwise"
+        >
+          <MaterialIcons name="rotate-left" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.mapControlButton}
+          onPress={rotateRight}
+          accessibilityLabel="Rotate right"
+          accessibilityHint="Rotates the map clockwise"
+        >
+          <MaterialIcons name="rotate-right" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.mapStyleButton}
           onPress={handleStyleChange}
           accessibilityLabel="Change map style"
@@ -287,7 +360,7 @@ const styles = StyleSheet.create({
   mapControls: {
     position: 'absolute',
     right: 20,
-    top: 70,
+    top: 100,
     backgroundColor: 'rgba(42, 42, 54, 0.8)',
     borderRadius: 8,
     padding: 8,
@@ -337,6 +410,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 2,
     borderColor: 'white',
+  },
+  rotationControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: 90,
+    marginVertical: 4,
   },
 });
 

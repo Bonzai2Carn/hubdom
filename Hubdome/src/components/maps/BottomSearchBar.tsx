@@ -267,7 +267,7 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
 const styles = StyleSheet.create({
   bottomBarContainer: {
     position: "absolute",
-    bottom: 80,
+    bottom: 40,
     left: 0,
     right: 0,
     paddingHorizontal: 20,

@@ -78,6 +78,7 @@ const HobbySchema = new Schema({
 // Index for better query performance
 HobbySchema.index({ category: 1, subcategory: 1 });
 HobbySchema.index({ name: 'text', description: 'text' });
+
 // Pre-save hook to update the updatedAt field and set the slug if not provided
 HobbySchema.pre('save', function(next) {
   this.updatedAt = new Date();

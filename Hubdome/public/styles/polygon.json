@@ -21,7 +21,7 @@
       "id": "background",
       "type": "background",
       "paint": {
-        "background-color": "#f8f4f0"
+        "background-color": "#1d2c4d"
       }
     },
     {
@@ -1397,9 +1397,9 @@
           ["linear"],
           ["zoom"],
           5,
-          "hsl(26,87%,62%)",
+          "hsl(29,7%,32%)",
           6,
-          "#fc8"
+          "#98a5be"
         ],
         "line-width": [
           "interpolate",
@@ -2142,11 +2142,25 @@
       "minzoom": 14,
       "paint": {
         "fill-extrusion-base": ["get", "render_min_height"],
-        "fill-extrusion-color": "hsl(35,8%,85%)",
         "fill-extrusion-height": ["get", "render_height"],
-        "fill-extrusion-opacity": 0.8
+        "fill-extrusion-color": [
+          "interpolate",
+          ["linear"],
+          ["get", "render_height"],
+          0, "#277DA1",
+          10, "#577590",
+          20, "#4D908E",
+          40, "#43AA8B",
+          60, "#90BE6D",
+          80, "hsl(29,40%,55%)",
+          100, "hsl(29,22%,55%)",
+          120, "hsl(25,40%,75%)",
+          140, "hsl(25,65%,75%)"
+        ],
+        "fill-extrusion-opacity": 0.95
       }
-    },
+    }
+    ,
     {
       "id": "boundary_3",
       "type": "line",

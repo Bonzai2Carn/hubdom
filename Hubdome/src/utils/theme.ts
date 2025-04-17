@@ -36,17 +36,36 @@ export const theme = {
 // Color palette for different hobby types
 export const hobbyColors = {
   Photography: "#F97316", // Orange
-  Hiking: "#3B82F6", // Blue
-  Cooking: "#EF4444", // Red
-  Gaming: "#8B5CF6", // Purple
-  Music: "#EC4899", // Pink
-  Art: "#14B8A6", // Teal
-  Reading: "#22C55E", // Green
+  Outdoor: "#3B82F6", // Blue
+  Culinary: "#EF4444", // Red
+  GamesnPuzzles: "#8B5CF6", // Purple
+  Musical: "#EC4899", // Pink
+  Artistic: "#14B8A6", // Teal
+  Intellectual: "#22C55E", // Green
   Travel: "#F59E0B", // Amber
-  Sports: "#3498DB", // Vibrant Blue
+  Physical: "#3498DB", // Vibrant Blue
   Technology: "#6366F1", // Indigo
   default: "#3498DB", // Default to our primary color
 };
+/*
+"artistic", 
+      "outdoor", 
+      "physical", 
+      "musical", 
+      "tech-and-gadgets",
+      "culinary", 
+      "diy-and-craft", 
+      "connection-based", 
+      "spiritual-and-mindfulness",
+      "scientific-and-intellectual", 
+      "games-and-puzzles", 
+      "collecting",
+      "travel", 
+      "mind", 
+      "health", 
+      "money-making",
+
+*/
 
 // Map styles for dark theme
 export const mapStyle = [

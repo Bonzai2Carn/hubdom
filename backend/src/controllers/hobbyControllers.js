@@ -433,9 +433,10 @@ const getNearbyHobbies = async (req, res) => {
 };
 
 module.exports = {
+  getHobbiesByCategory,
+  publishHobby,
   getAllHobbies,
   getHobby,
-  publishHobby,
   updateHobby,
   deleteHobby,
   joinHobby,

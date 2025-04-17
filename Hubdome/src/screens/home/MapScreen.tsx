@@ -13,6 +13,8 @@ import {
   SafeAreaView,
   AccessibilityInfo,
   Alert,
+  PanResponder,
+  GestureResponderEvent 
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from '@react-navigation/native';
@@ -26,18 +28,19 @@ import MarkerDetailPopup from "../../components/maps/MarkerDetailPopup";
 import TopRightControls from "../../components/maps/TopRightControls";
 import AnnouncementBanner from "../../components/common/AnnouncementBanner";
 import BottomSearchBar from "../../components/maps/BottomSearchBar";
-import BottomNavigation from "../../components/navigations/BottomNavigation";
+// import BottomNavigation from "../../components/navigations/BottomNavigation";
 
 // Hooks
 import { useLocation } from "../../hooks/useLocation";
 
 // Types & Constants
-import { MapMarker, MapStyleType, MAP_STYLE_URLS } from "../../types/map";
+import { MapMarker, MapStyleType, MAP_STYLE_URLS} from "../../types/map";
+import { MapViewComponentHandle } from "../../components/maps/MapViewComponent";
 
 const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   // Refs
   const bannerFadeAnim = React.useRef(new Animated.Value(0)).current;
-  const mapViewRef = useRef(null);
+  const mapRef = useRef<MapViewComponentHandle>(null);
   
   // Get location data with custom hook
   const {
@@ -213,7 +216,7 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     description: string;
   }) => {
     // Navigate map to the selected location
-    if (mapViewRef.current) {
+    if (mapRef.current) {
       // This would call a method on the MapViewComponent to fly to the location
       // For now, we'll just log it
       console.log('Flying to location:', locationData);
@@ -289,11 +292,34 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     }
   }, [location]);
 
+  // Configure pan responder for map rotation
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
+      onPanResponderMove: (evt: GestureResponderEvent) => {
+        if (evt.nativeEvent.touches.length === 2) {
+          const [touch1, touch2] = evt.nativeEvent.touches;
+          
+          // Calculate angle between touches
+          const angle = Math.atan2(
+            touch2.pageY - touch1.pageY,
+            touch2.pageX - touch1.pageX
+          ) * (180 / Math.PI);
+
+          // Update map bearing if map reference exists
+          mapRef.current?.rotateTo?.(angle);
+        }
+      }
+    })
+  ).current;
+
   // Default view state if location is not available
   const initialViewState = useMemo(() => ({
     longitude: location ? location.coords.longitude : -74.005974,
     latitude: location ? location.coords.latitude : 40.712776,
-    zoom: 14,
+    zoom: 17,
+    pitch: 60,
+    bearing: 15
   }), [location]);
 
   // User location for the map
@@ -324,9 +350,9 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor="#1E1E2A" />
       
       {/* Map View */}
-      <View style={styles.mapContainer}>
+      <View style={styles.mapContainer} {...panResponder.panHandlers}>
         <MapViewComponent
-          ref={mapViewRef}
+          ref={mapRef}
           initialViewState={initialViewState}
           markers={filteredMarkers}
           userLocation={userLocationForMap}
@@ -380,7 +406,7 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       />
 
       {/* Bottom Navigation */}
-      <BottomNavigation
+      {/* <BottomNavigation
         activeTab={activeTab}
         onTabChange={(tab) => {
           setActiveTab(tab);
@@ -388,7 +414,7 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             navigation.navigate(tab.charAt(0).toUpperCase() + tab.slice(1));
           }
         }}
-      />
+      /> */}
 
       {/* Modals and Sidebars */}
       <CreateEventModal

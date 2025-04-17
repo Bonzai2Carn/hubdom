@@ -8,5 +8,9 @@ const { protect } = require('../../../middleware/authMiddleware');
 router.post("/location", protect, userController.updateUserLocation);
 router.post("/location/settings", protect, userController.updateLocationSettings);
 
+// Add new routes for profile management
+router.put("/profile", protect, userController.updateUserProfile);
+router.put("/avatar", protect, userController.updateUserAvatar);
+
 // Export the router
 module.exports = router;

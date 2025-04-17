@@ -137,9 +137,6 @@ async function createEvent(req, res) {
       description,
       hobbyId,
       eventType,
-      daysOfWeek,
-      time,
-      duration,
       location,
       startDate,
       endDate,
@@ -154,10 +151,9 @@ async function createEvent(req, res) {
       !description ||
       !hobbyId ||
       !location ||
-      !daysOfWeek ||
+      !participantLimit ||
+      !eventType ||
       !weeklySchedule ||
-      !duration ||
-      !time ||
       !startDate ||
       !endDate
     ) {

@@ -10,7 +10,6 @@ const userRoutes = require("./userRoutes");
 const dataController = require("../../../controllers/dataController");
 const notificationRoutes = require('./notificationRoutes');
 
-
 // API welcome route
 router.get("/", (req, res) => {
   res.json({
@@ -28,7 +27,14 @@ router.use("/auth", authRoutes);
 router.use("/hobbies", hobbyRoutes);
 router.use("/events", eventRoutes);
 router.use("/users", userRoutes);
-router.use("/notifications", notificationRoutes);
+
+try {
+    router.use("/notifications", notificationRoutes);
+    console.log('Notification routes mounted successfully');
+} catch (error) {
+    console.error('Error mounting notification routes:', error);
+    // Handle the error appropriately
+}
 
 // Log routing for debugging
 console.log('Routes mounted successfully:');

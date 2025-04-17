@@ -268,3 +268,43 @@
 {"level":"info","message":"GET /api/v1/notifications 404 1.199 ms - {}","timestamp":"2025-03-29T00:31:05.387Z"}
 {"level":"info","message":"GET /api/v1/notification 404 0.531 ms - {}","timestamp":"2025-03-29T00:31:14.410Z"}
 {"level":"info","message":"GET /api/v1/events 304 0.568 ms - {}","timestamp":"2025-03-29T00:31:43.355Z"}
+{"level":"info","message":"GET /api/v1/hobbies 304 5.614 ms - {}","timestamp":"2025-03-29T00:38:00.562Z"}
+{"level":"info","message":"GET /api/v1/hobbies 304 34.086 ms - {}","timestamp":"2025-03-30T00:57:32.320Z"}
+{"level":"info","message":"GET /api/v1/hobbies 304 8.261 ms - {}","timestamp":"2025-03-30T01:23:43.580Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/login 204 0.618 ms - {}","timestamp":"2025-03-30T09:02:11.808Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 2.101 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T09:02:11.813Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 0.841 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T09:02:12.883Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 0.881 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T09:02:14.890Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/login 204 0.237 ms - {}","timestamp":"2025-03-30T09:02:18.900Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 0.621 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T09:02:18.902Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/register 204 2.393 ms - {}","timestamp":"2025-03-30T18:50:27.349Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/register 404 17.023 ms - {\"name\":\"George Kwasia\",\"email\":\"Georges.Kwasea@MailMagnet.co\",\"username\":\"george_k\",\"password\":\"********\"}","timestamp":"2025-03-30T18:50:27.372Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/register 404 1.385 ms - {\"name\":\"George Kwasia\",\"email\":\"Georges.Kwasea@MailMagnet.co\",\"username\":\"george_k\",\"password\":\"********\"}","timestamp":"2025-03-30T18:50:28.381Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/register 404 1.002 ms - {\"name\":\"George Kwasia\",\"email\":\"Georges.Kwasea@MailMagnet.co\",\"username\":\"george_k\",\"password\":\"********\"}","timestamp":"2025-03-30T18:50:30.389Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/register 204 0.262 ms - {}","timestamp":"2025-03-30T18:50:34.396Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/register 404 1.032 ms - {\"name\":\"George Kwasia\",\"email\":\"Georges.Kwasea@MailMagnet.co\",\"username\":\"george_k\",\"password\":\"********\"}","timestamp":"2025-03-30T18:50:34.399Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/login 204 0.216 ms - {}","timestamp":"2025-03-30T18:51:07.068Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 0.752 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T18:51:07.071Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 0.946 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T18:51:08.097Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 0.817 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T18:51:10.104Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/login 204 0.269 ms - {}","timestamp":"2025-03-30T18:51:14.115Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 1.227 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T18:51:14.118Z"}
+{"level":"info","message":"GET /api/v1/hobbies 200 21.802 ms - {}","timestamp":"2025-03-30T18:52:01.715Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/register 204 0.301 ms - {}","timestamp":"2025-03-30T18:54:33.669Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/register 404 2.014 ms - {\"name\":\"George Kwasea\",\"email\":\"Georges.Kwasea@MailMagnet.co\",\"username\":\"george_kwasea\",\"password\":\"********\"}","timestamp":"2025-03-30T18:54:33.675Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/register 404 1.079 ms - {\"name\":\"George Kwasea\",\"email\":\"Georges.Kwasea@MailMagnet.co\",\"username\":\"george_kwasea\",\"password\":\"********\"}","timestamp":"2025-03-30T18:54:34.701Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/register 404 0.668 ms - {\"name\":\"George Kwasea\",\"email\":\"Georges.Kwasea@MailMagnet.co\",\"username\":\"george_kwasea\",\"password\":\"********\"}","timestamp":"2025-03-30T18:54:36.715Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/register 204 0.170 ms - {}","timestamp":"2025-03-30T18:54:40.721Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/register 404 0.704 ms - {\"name\":\"George Kwasea\",\"email\":\"Georges.Kwasea@MailMagnet.co\",\"username\":\"george_kwasea\",\"password\":\"********\"}","timestamp":"2025-03-30T18:54:40.724Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/login 204 0.732 ms - {}","timestamp":"2025-03-30T19:01:04.223Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 2.611 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T19:01:04.231Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 0.941 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T19:01:05.277Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 1.676 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T19:01:07.293Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/login 204 0.942 ms - {}","timestamp":"2025-03-30T19:01:11.313Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 2.169 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T19:01:11.320Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/login 204 0.572 ms - {}","timestamp":"2025-03-30T19:11:31.598Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 1.510 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T19:11:31.602Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 2.028 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T19:11:32.654Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 1.802 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T19:11:34.671Z"}
+{"level":"info","message":"OPTIONS /api/v1/api/v1/auth/login 204 0.514 ms - {}","timestamp":"2025-03-30T19:11:38.685Z"}
+{"level":"info","message":"POST /api/v1/api/v1/auth/login 404 1.337 ms - {\"email\":\"test@example.com\",\"password\":\"********\"}","timestamp":"2025-03-30T19:11:38.690Z"}
