@@ -28,7 +28,7 @@ import MarkerDetailPopup from "../../components/maps/MarkerDetailPopup";
 import TopRightControls from "../../components/maps/TopRightControls";
 import AnnouncementBanner from "../../components/common/AnnouncementBanner";
 import BottomSearchBar from "../../components/maps/BottomSearchBar";
-// import BottomNavigation from "../../components/navigations/BottomNavigation";
+
 
 // Hooks
 import { useLocation } from "../../hooks/useLocation";
@@ -64,6 +64,11 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [mapStyle, setMapStyle] = useState<MapStyleType>('standard');
   const [filteredMarkers, setFilteredMarkers] = useState<MapMarker[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
+  // state for long press gesture
+  const [longPressCoordinates, setLongPressCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   // Check for screen reader
   useEffect(() => {
@@ -83,6 +88,43 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     return () => {
       subscription.remove();
     };
+  }, []);
+
+  // Long press to add marker
+  const handleMapLongPress = useCallback(async (e: any) => {
+    const coordinates = {
+      latitude: e.lngLat[1],  // Maplibre returns [longitude, latitude]
+      longitude: e.lngLat[0]
+    };
+  
+    try {
+      // Get address for the long pressed location
+      const locationService = LocationService.getInstance();
+      const addressInfo = await locationService.reverseGeocodeLocation(
+        coordinates.latitude,
+        coordinates.longitude
+      );
+  
+      const address = addressInfo.status === 'success' && addressInfo.address
+        ? [
+            addressInfo.address.street,
+            addressInfo.address.city,
+            addressInfo.address.state,
+            addressInfo.address.country
+          ].filter(Boolean).join(", ")
+        : undefined;
+  
+      // Store coordinates and open modal
+      setLongPressCoordinates({
+        ...coordinates,
+        address
+      });
+      setIsCreateModalOpen(true);
+    } catch (error) {
+      console.error("Error getting address for long press location:", error);
+      setLongPressCoordinates(coordinates);
+      setIsCreateModalOpen(true);
+    }
   }, []);
   
   // Fetch markers from API
@@ -360,6 +402,8 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           onMarkerPress={handleMarkerPress}
           selectedMarker={selectedMarker}
           onStyleChange={handleMapStyleChange}
+          onLongPress={handleMapLongPress}
+
         />
       </View>
       
@@ -415,22 +459,15 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         }}
       />
 
-      {/* Bottom Navigation */}
-      {/* <BottomNavigation
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          if (tab !== 'map') {
-            navigation.navigate(tab.charAt(0).toUpperCase() + tab.slice(1));
-          }
-        }}
-      /> */}
-
       {/* Modals and Sidebars */}
       <CreateEventModal
         isVisible={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={() => {
+          setIsCreateModalOpen(false),
+          setLongPressCoordinates(null);
+        }}
         onSubmit={handleEventCreated}
+        initialLocation={longPressCoordinates} // Pass coordinates to modal
       />
       <ProfileSidebar
         isVisible={isProfileOpen}

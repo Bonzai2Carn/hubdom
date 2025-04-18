@@ -11,10 +11,12 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
-  FlatList
+  FlatList,
+  Image
 } from "react-native";
-import { TextInput } from "react-native-paper";
+import { TextInput, Button } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from 'expo-image-picker';
 import DaySelector from "../../components/events/DaySelector";
 import ParticipantSelector from "../../components/events/ParticipantSelector";
 import CategorySelector from "../../components/events/CategorySelector";
@@ -22,13 +24,21 @@ import EventTypeToggle from "../../components/events/EventTypeToggle";
 import TimeSelector from "../../components/events/TimeSelector";
 // Removed unused DateTimePicker import
 import { LocationService } from "../../services/locationService";
+import { performLocationSearch, LocationSearchResult } from "../../utils/geocodingUtils";
+
 
 // Location services
 
+// Update the interface to include initial location coordinates and address
 interface CreateEventModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSubmit?: (eventData: any) => void;
+  initialLocation?: {
+    latitude: number;
+    longitude: number;
+    // address?: string;
+  } | null;
 }
 
 interface LocationSuggestion {
@@ -40,24 +50,47 @@ interface LocationSuggestion {
   placeName?: string;
 }
 
+interface EventData {
+  title: string;
+  description: string;
+  category: string;
+  days: number[];
+  duration: number;
+  eventType: 'solo' | 'private' | 'public';
+  location: {
+    coordinates: [number, number];
+    formattedAddress: string;
+  };
+  media?: {
+    type: 'image' | 'video';
+    uri: string;
+  };
+}
+
 const CreateEventModal: React.FC<CreateEventModalProps> = ({ 
   isVisible, 
   onClose,
-  onSubmit 
+  onSubmit,
+  initialLocation
 }) => {
   // Form state
   const [eventName, setEventName] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [eventDescription, setEventDescription] = useState("");
-  const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [eventType, setEventType] = useState<"solo" | "private" | "public">("public");
-  const [selectedTime, setSelectedTime] = useState<Date>(new Date());
-  const [participants, setParticipants] = useState<string[]>([]);  const [eventLocation, setEventLocation] = useState("");
-  const [coordinates, setCoordinates] = useState<{ latitude: number, longitude: number } | null>(null);
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [days, setDays] = useState<number[]>([]);
+  const [duration, setDuration] = useState(60); // minutes
+  const [eventType, setEventType] = useState<'solo' | 'private' | 'public'>('public');
+  const [mediaType, setMediaType] = useState<'none' | 'image' | 'video'>('none');
+  const [mediaUri, setMediaUri] = useState<string | null>(null);
+
+  // Location state
+  const [eventLocation, setEventLocation] = useState("");
+  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSearchResult[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [isGeocodingLoading, setIsGeocodingLoading] = useState(false);
   const [geocodingError, setGeocodingError] = useState<string | null>(null);
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
-  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [locationSearchTimeout, setLocationSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Reset form when modal closes
   useEffect(() => {
@@ -73,6 +106,52 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     }
   }, [isVisible]);
   
+  // Add effect to handle initial location when modal opens
+  useEffect(() => {
+    const handleInitialLocation = async () => {
+      if (isVisible && initialLocation) {
+        // Set coordinates immediately
+        setCoordinates({
+          latitude: initialLocation.latitude,
+          longitude: initialLocation.longitude
+        });
+
+        // If address is provided, use it directly
+        // if (initialLocation.address) {
+        //   setEventLocation(initialLocation.address);
+        //   return;
+        // }
+
+        // Otherwise, reverse geocode the coordinates
+        try {
+          const locationService = LocationService.getInstance();
+          const addressInfo = await locationService.reverseGeocodeLocation(
+            initialLocation.latitude,
+            initialLocation.longitude
+          );
+
+          if (addressInfo.status === 'success' && addressInfo.address) {
+            const formattedAddress = [
+              addressInfo.address.street,
+              addressInfo.address.city,
+              addressInfo.address.state,
+              addressInfo.address.country
+            ].filter(Boolean).join(", ");
+
+            setEventLocation(formattedAddress || "Selected Location");
+          } else {
+            setEventLocation("Selected Location");
+          }
+        } catch (error) {
+          console.error("Error getting address for initial location:", error);
+          setEventLocation("Selected Location");
+        }
+      }
+    };
+
+    handleInitialLocation();
+  }, [isVisible, initialLocation]);
+  
   // Handle location search debouncing
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -87,14 +166,37 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     return () => clearTimeout(delayDebounceFn);
   }, [eventLocation, isVisible]);
   
+  useEffect(() => {
+    if (locationSearchTimeout) {
+      clearTimeout(locationSearchTimeout);
+    }
+    
+    if (eventLocation.length > 2) {
+      const timeout = setTimeout(() => {
+        searchLocations(eventLocation);
+      }, 500);
+      
+      setLocationSearchTimeout(timeout);
+    } else {
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
+    }
+    
+    return () => {
+      if (locationSearchTimeout) {
+        clearTimeout(locationSearchTimeout);
+      }
+    };
+  }, [eventLocation, searchLocations]);
+  
   const resetForm = () => {
     setEventName("");
-    setSelectedCategory("");
-    setEventDescription("");
-    setSelectedDays([]);
+    setCategory("");
+    setDescription("");
+    setDays([]);
     setEventType("public");
     setSelectedTime(new Date());
-    setParticipants([]);
+    // setParticipants([]);
     setEventLocation("");
     setCoordinates(null);
     setGeocodingError(null);
@@ -143,7 +245,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   };
   
   // Search for location suggestions
-  const searchLocations = async (query: string) => {
+  const searchLocations = useCallback(async (query: string) => {
     if (!query.trim() || query.length < 3) {
       setLocationSuggestions([]);
       setShowLocationSuggestions(false);
@@ -154,43 +256,15 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     setGeocodingError(null);
     
     try {
-      // Use the LocationService to geocode the address
-      const locationService = LocationService.getInstance();
-      const result = await locationService.geocodeAddress(query);
+      // Use the shared utility function
+      const results = await performLocationSearch(query, {
+        userLocation: coordinates, // Pass current coordinates if available
+        radius: 50 // Default radius in km
+      });
       
-      if (result.status === "success") {
-        // Get a readable address
-        const addressInfo = await locationService.reverseGeocodeLocation(
-          result.latitude,
-          result.longitude
-        );
-        
-        const suggestions: LocationSuggestion[] = [];
-        
-        // Add the geocoded result
-        suggestions.push({
-          id: `geocoded-${Date.now()}`,
-          description: query,
-          formattedAddress: addressInfo.status === 'success' && addressInfo.address 
-            ? [
-                addressInfo.address.street,
-                addressInfo.address.city,
-                addressInfo.address.state,
-                addressInfo.address.country
-              ].filter(Boolean).join(", ")
-            : query,
-          latitude: result.latitude,
-          longitude: result.longitude
-        });
-        
-        setLocationSuggestions(suggestions);
-        setShowLocationSuggestions(true);
-        setGeocodingError(null);
-      } else {
-        setGeocodingError(result.error || "No locations found");
-        setLocationSuggestions([]);
-        setShowLocationSuggestions(false);
-      }
+      setLocationSuggestions(results);
+      setShowLocationSuggestions(results.length > 0);
+      setGeocodingError(null);
     } catch (error) {
       console.error("Geocoding error:", error);
       setGeocodingError("Failed to find matching locations");
@@ -199,7 +273,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     } finally {
       setIsGeocodingLoading(false);
     }
-  };
+  }, [coordinates]);
   
   // Select a location suggestion
   const selectLocationSuggestion = (suggestion: LocationSuggestion) => {
@@ -256,113 +330,144 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   // Date & Time Handlers
   const handleDayToggle = useCallback((day: number) => {
-    setSelectedDays(prev => 
+    setDays(prev => 
       prev.includes(day) 
         ? prev.filter(d => d !== day) 
         : [...prev, day]
     );
   }, []);
 
-  // Handle participant management
-  const handleAddParticipant = useCallback((id: string) => {
-    setParticipants(prev => [...prev, id]);
-  }, []);
+  // // Handle participant management
+  // const handleAddParticipant = useCallback((id: string) => {
+  //   setParticipants(prev => [...prev, id]);
+  // }, []);
   
-  const handleRemoveParticipant = useCallback((id: string) => {
-    setParticipants(prev => prev.filter(p => p !== id));
-  }, []);
+  // const handleRemoveParticipant = useCallback((id: string) => {
+  //   setParticipants(prev => prev.filter(p => p !== id));
+  // }, []);
 
   // -----------------------------------------
-  // const onTimeChange = (event: any, selectedTime?: Date) => {
-  //   const currentTime = selectedTime || eventTime;
-  //   setShowTimePicker(Platform.OS === 'ios');
-  //   setEventTime(currentTime);
-  // };
+  const onTimeChange = (event: any, selectedTime?: Date) => {
+    const currentTime = selectedTime || eventTime;
+    setShowTimePicker(Platform.OS === 'ios');
+    setEventTime(currentTime);
+  };
 
-  // // Format date for display
-  // const formatDate = (date: Date): string => {
-  //   return date.toLocaleDateString('en-US', { 
-  //     month: 'short', 
-  //     day: 'numeric', 
-  //     year: 'numeric' 
-  //   });
-  // };
+  // Format date for display
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
 
-  // // Format time for display
-  // const formatTime = (time: Date): string => {
-  //   return time.toLocaleTimeString('en-US', { 
-  //     hour: 'numeric', 
-  //     minute: '2-digit',
-  //     hour12: true 
-  //   });
-  // };
+  // Format time for display
+  const formatTime = (time: Date): string => {
+    return time.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
 
-  const handleSubmit = () => {
-    // Validate form
+  const handleMediaUpload = async (type: 'image' | 'video') => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission required", "Please allow access to your media library");
+        return;
+      }
+  
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        quality: 1,
+      });
+  
+      if (!result.canceled) {
+        setMediaUri(result.assets[0].uri);
+        setMediaType(type);
+      }
+    } catch (error) {
+      console.error('Error picking media:', error);
+      Alert.alert('Error', 'Failed to upload media');
+    }
+  };
+  
+  const handleTakePhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission required", "Please allow access to your camera");
+        return;
+      }
+  
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 1,
+      });
+  
+      if (!result.canceled) {
+        setMediaUri(result.assets[0].uri);
+        setMediaType('image');
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const validateForm = () => {
     if (!eventName.trim()) {
       Alert.alert("Error", "Please enter an event name");
-      return;
+      return false;
     }
-    
-    if (!selectedCategory) {
+    if (!category) {
       Alert.alert("Error", "Please select a category");
-      return;
+      return false;
     }
-
-    if (!eventDescription.trim()) {
+    if (!description.trim()) {
       Alert.alert("Error", "Please add a description");
-      return;
+      return false;
     }
-
-    if (!eventDescription.trim()) {
-      Alert.alert("Error", "Please add a description");
-      return;
-    }
-    
-    if (selectedDays.length === 0) {
+    if (days.length === 0) {
       Alert.alert("Error", "Please select at least one day");
-      return;
+      return false;
     }
-    if (!eventType) {
-      Alert.alert("Error", "Please select an event type");
-      return;
+    if (!eventLocation || !coordinates) {
+      Alert.alert("Error", "Please select a valid location");
+      return false;
     }
-    
-    if (!eventLocation.trim() || !coordinates) {
-      Alert.alert("Error", "Please enter a valid location");
-      return;
-    }
-    
-    // // Combine date and time
-    // const combinedDateTime = new Date(eventDate);
-    // combinedDateTime.setHours(
-    //   eventTime.getHours(),
-    //   eventTime.getMinutes(),
-    //   0, 0
-    // );
-    
-    // Prepare eventData with the geocoded coordinates
-    const eventData = {
+    return true;
+  };
+
+  const handleSubmit = () => {
+    if (!validateForm()) return;
+  
+    const eventData: EventData = {
       title: eventName,
-      description: eventDescription,
-      category: selectedCategory,
+      description,
+      category,
+      days,
+      duration,
       eventType,
-      days: selectedDays,
-      time: selectedTime.toISOString(),
-      participants: eventType === "solo" ? [] : participants,
       location: {
-        formattedAddress: eventLocation,
-        coordinates: [coordinates.longitude, coordinates.latitude] // GeoJSON format
+        coordinates: [coordinates!.longitude, coordinates!.latitude],
+        formattedAddress: eventLocation
       },
-      // Add other fields as needed
+      ...(mediaUri && {
+        media: {
+          type: mediaType === 'none' ? 'image' : mediaType,
+          uri: mediaUri
+        }
+      })
     };
-    
-    // Call the onSubmit callback with the event data
+  
     if (onSubmit) {
       onSubmit(eventData);
     }
     
-    // Reset form and close modal
     resetForm();
     onClose();
   };
@@ -405,8 +510,8 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Category</Text>
               <CategorySelector
-                selectedCategory={selectedCategory}
-                onSelectCategory={setSelectedCategory}
+                selectedCategory={category}
+                onSelectCategory={setCategory}
               />
             </View>
 
@@ -414,8 +519,8 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Description</Text>
               <TextInput
-                value={eventDescription}
-                onChangeText={setEventDescription}
+                value={description}
+                onChangeText={setDescription}
                 placeholder="Describe your event"
                 placeholderTextColor="#BBBBBB"
                 mode="outlined"
@@ -429,7 +534,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Select Days</Text>
               <DaySelector
-                selectedDays={selectedDays}
+                selectedDays={days}
                 onToggleDay={handleDayToggle}
               />
             </View>
@@ -453,7 +558,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
             </View>
 
             {/* Participants Selector (only if not solo) */}
-            {eventType !== "solo" && (
+            {/* {eventType !== "solo" && (
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Add Participants</Text>
                 <ParticipantSelector
@@ -462,7 +567,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                   onRemoveParticipant={handleRemoveParticipant}
                 />
               </View>
-            )}
+            )} */}
 
             {/* Location */}
             <View style={styles.inputGroup}>

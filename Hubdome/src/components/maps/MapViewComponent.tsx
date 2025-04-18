@@ -2,6 +2,7 @@
 import React, { useRef, useState, useCallback, memo, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Animated } from 'react-native';
 import Map, { MapRef, Marker, NavigationControl } from '@vis.gl/react-maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -17,6 +18,7 @@ interface MapViewComponentProps {
     pitch?: number;     // Add optional pitch
     bearing?: number;   // Add optional bearing
   };
+  onLongPress?: (coordinates: { latitude: number; longitude: number }) => void;
   markers: MapMarker[];
   userLocation?: {
     longitude: number;
@@ -47,8 +49,9 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
     mapStyle,
     onMarkerPress,
     selectedMarker,
-    onStyleChange
-  }, 
+    onStyleChange,
+    onLongPress
+  },
   ref
 ) => {
   const mapRef = useRef<MapRef>(null);
@@ -56,7 +59,10 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
     pitch: initialViewState.pitch || 0,
     bearing: initialViewState.bearing || 0,
   });
-  
+
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+
   // Expose methods to parent component via ref
   useImperativeHandle(ref, () => ({
     flyTo: ({ longitude, latitude, zoom = 14 }) => {
@@ -103,6 +109,11 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
       }
     }
   }));
+
+  // Collapse/expand map controls
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed(prev => !prev);
+  }, []);
 
   // Map control functions
   const zoomIn = useCallback(() => {
@@ -151,12 +162,12 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
     if (mapRef.current) {
       const map = mapRef.current.getMap();
       const newPitch = viewState.pitch === 0 ? 60 : 0;
-      
+
       map.easeTo({
         pitch: newPitch,
         duration: 500
       });
-      
+
       setViewState(prev => ({
         ...prev,
         pitch: newPitch
@@ -177,9 +188,9 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
       const map = mapRef.current.getMap();
       const currentBearing = map.getBearing();
       const newBearing = currentBearing - 15;
-      
+
       map.rotateTo(newBearing, { duration: 300 });
-      
+
       setViewState(prev => ({
         ...prev,
         bearing: newBearing
@@ -192,9 +203,9 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
       const map = mapRef.current.getMap();
       const currentBearing = map.getBearing();
       const newBearing = currentBearing + 15;
-      
+
       map.rotateTo(newBearing, { duration: 300 });
-      
+
       setViewState(prev => ({
         ...prev,
         bearing: newBearing
@@ -206,7 +217,7 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
   useEffect(() => {
     if (mapRef.current) {
       const map = mapRef.current.getMap();
-      
+
       // Wait for map to be loaded
       map.once('load', () => {
         // Set initial isometric view
@@ -218,6 +229,30 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
       });
     }
   }, [initialViewState.pitch, initialViewState.bearing]);
+
+  // add useEffect for collapsed items
+  useEffect(() => {
+    if (mapRef.current) {
+      // Give the DOM time to update before resizing the map
+      setTimeout(() => {
+        const map = mapRef.current?.getMap();
+        if (map) {
+          map.resize();
+        }
+      }, 100);
+    }
+  }, [isCollapsed]);
+
+  // handle long press gesture
+  const handleMapLongPress = useCallback((event: any) => {
+    if (onLongPress && event.lngLat) {
+      // Convert the coordinates to the format expected by our event creation
+      onLongPress({
+        latitude: event.lngLat[1],
+        longitude: event.lngLat[0]
+      });
+    }
+  }, [onLongPress]);
 
   // Render a map marker
   const renderMarker = useCallback((marker: MapMarker) => {
@@ -240,6 +275,7 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
             name={markerIconName as any}
             size={isSelected ? 32 : 24}
             color={isSelected ? '#FF7F50' : '#3498DB'}
+            style={{ transform: [{ rotate: '-45deg' }] }}
           />
         </View>
       </Marker>
@@ -247,37 +283,70 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
   }, [selectedMarker, onMarkerPress]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isCollapsed && styles.collapsedContainer]}>
       <Map
         ref={mapRef}
         initialViewState={{
           ...initialViewState,
           pitch: viewState.pitch,
           bearing: viewState.bearing,
-          }}
+        }}
         style={styles.mapContainer}
         mapStyle={mapStyle}
         mapLib={maplibregl}
+        onDblClick={handleMapLongPress} // For the web version
+        onClick={(e) => {
+          // We'll use a timer to determine if it's a long press
+          if (e.originalEvent.type === 'pointerdown') {
+            const timer = setTimeout(() => {
+              handleMapLongPress(e);
+            }, 2000); // 2 seconds for long press
+
+            // Clear the timer if the user moves or releases before 2 seconds
+            const clearTimer = () => {
+              clearTimeout(timer);
+              document.removeEventListener('pointermove', clearTimer);
+              document.removeEventListener('pointerup', clearTimer);
+            };
+
+            document.addEventListener('pointermove', clearTimer, { once: true });
+            document.addEventListener('pointerup', clearTimer, { once: true });
+          }
+        }}
       >
         <NavigationControl style={styles.navigationControl} />
-        
+
         {/* User location marker */}
         {userLocation && (
           <Marker
-            longitude={userLocation.longitude}
+            longitude={userLocation.longitude} //will use an avatar for the user location
             latitude={userLocation.latitude}
             anchor="center"
           >
-            <View style={styles.userLocationMarker} />
+            <View style={[styles.userLocationMarker, { transform: [{ rotate: '45deg' }] }]} />
           </Marker>
         )}
-        
+
         {/* Event/content markers */}
         {markers.map(renderMarker)}
       </Map>
+      
 
       {/* Map Controls */}
+      
       <View style={styles.mapControls}>
+        <TouchableOpacity
+        style={styles.mapControlButton && styles.collapsedContainer}
+        onPress={toggleCollapse}
+        accessibilityLabel={isCollapsed ? "Expand map" : "Collapse map"}
+      >
+        <MaterialIcons
+          name={isCollapsed ? "keyboard-arrow-down" : "keyboard-arrow-up"}
+          size={24}
+          color="#FFFFFF"
+        />
+      </TouchableOpacity>
+      {!isCollapsed && (
         <TouchableOpacity
           style={styles.mapControlButton}
           onPress={zoomIn}
@@ -285,15 +354,17 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
           accessibilityHint="Zooms in on the map"
         >
           <MaterialIcons name="add" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <TouchableOpacity
+        </TouchableOpacity>)}
+        {!isCollapsed && (
+          <TouchableOpacity
           style={styles.mapControlButton}
           onPress={zoomOut}
           accessibilityLabel="Zoom out"
           accessibilityHint="Zooms out on the map"
         >
           <MaterialIcons name="remove" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+        </TouchableOpacity>)}
+        {!isCollapsed && (
         <TouchableOpacity
           style={styles.mapControlButton}
           onPress={recenterMap}
@@ -302,43 +373,47 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
           disabled={!userLocation}
         >
           <MaterialIcons name="my-location" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <TouchableOpacity
+        </TouchableOpacity>)}
+        {!isCollapsed && (
+          <TouchableOpacity
           style={styles.mapControlButton}
           onPress={toggleIsometricView}
           accessibilityLabel="Toggle isometric view"
           accessibilityHint="Switches between flat and angled perspective"
         >
-          <MaterialIcons 
-            name={viewState.pitch > 0 ? "view-in-ar" : "3d-rotation"} 
-            size={24} 
-            color="#FFFFFF" 
+          <MaterialIcons
+            name={viewState.pitch > 0 ? "crop-rotate" : "3d-rotation"}
+            size={24}
+            color="#FFFFFF"
           />
-        </TouchableOpacity>
+        </TouchableOpacity> )}
+        {!isCollapsed && (
         <TouchableOpacity
           style={styles.mapControlButton}
           onPress={rotateLeft}
           accessibilityLabel="Rotate left"
           accessibilityHint="Rotates the map counter-clockwise"
         >
-          <MaterialIcons name="rotate-left" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        
+          <MaterialIcons name="rotate-right" size={24} color="#FFFFFF" />
+        </TouchableOpacity>)}
+        {!isCollapsed && (
+
         <TouchableOpacity
           style={styles.mapControlButton}
           onPress={rotateRight}
           accessibilityLabel="Rotate right"
           accessibilityHint="Rotates the map clockwise"
         >
-          <MaterialIcons name="rotate-right" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+          <MaterialIcons name="rotate-left" size={24} color="#FFFFFF" />
+        </TouchableOpacity>)}
+        {!isCollapsed && (
         <TouchableOpacity
           style={styles.mapStyleButton}
           onPress={handleStyleChange}
           accessibilityLabel="Change map style"
         >
           <MaterialIcons name="layers" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+        </TouchableOpacity>)}
       </View>
     </View>
   );
@@ -349,20 +424,34 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
+  // collapsed container style
+  collapsedContainer: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 50,
+    // padding: 5,
+    backgroundColor: 'rgba(42, 42, 54, 0.8)',
+  },
+
+  // navigation styles
   mapContainer: {
     flex: 1,
   },
+
   navigationControl: {
     position: 'absolute',
     top: 10,
-    left: 10,
+    left: 40,
   },
   mapControls: {
     position: 'absolute',
-    right: 20,
+    right: 15,
     top: 100,
     backgroundColor: 'rgba(42, 42, 54, 0.8)',
-    borderRadius: 8,
+    borderTopStartRadius: 20,
+    borderTopEndRadius: 10,
+    borderBottomStartRadius: 10,
+    borderBottomEndRadius: 20,
     padding: 8,
     zIndex: 1,
     shadowColor: '#000',
@@ -370,10 +459,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 5,
+    alignItems: 'center',
   },
   mapControlButton: {
-    width: 40,
-    height: 40,
+    width: 30,
+    height: 25,
     justifyContent: 'center',
     alignItems: 'center',
     marginVertical: 4,
@@ -385,15 +475,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 4,
   },
+
+  // marker styles
   markerContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 10,
     backgroundColor: 'rgba(42, 42, 54, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    transform: [{ rotate: '45deg' }],
   },
   selectedMarkerContainer: {
     width: 56,
@@ -404,12 +497,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(42, 42, 54, 0.9)',
   },
   userLocationMarker: {
-    width: 16,
-    height: 16,
+    width: 36,
+    height: 36,
     backgroundColor: '#FF7F50',
     borderRadius: 8,
     borderWidth: 2,
     borderColor: 'white',
+
   },
   rotationControls: {
     flexDirection: 'row',

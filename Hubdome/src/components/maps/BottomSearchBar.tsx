@@ -3,8 +3,12 @@ import React, { useState, useRef, useEffect, memo } from 'react';
 import { View, StyleSheet, TouchableOpacity, FlatList, Text, Keyboard } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LocationService } from "../../services/locationService";
-// import SearchBar from '../discover/SearchBar';
+import { 
+  performLocationSearch, 
+  calculateDistance, 
+  LocationSearchResult,
+  SearchOptions 
+} from '../../utils/geocodingUtils';
 
 interface BottomSearchBarProps {
   searchQuery: string;
@@ -31,21 +35,11 @@ interface BottomSearchBarProps {
   searchRadius?: number; // in kilometers, default will be 50
 }
 
-// Add this interface for Nominatim response - move it to map.ts later on
-interface NominatimResult {
-  place_id: string;
-  lat: string;
-  lon: string;
-  display_name: string;
-  type: string;
-  importance: number;
-}
-
 // Add new interface for search state
 interface SearchState {
   query: string;
   radius: number;
-  results: any[];
+  results: LocationSearchResult[];
 }
 
 const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
@@ -122,55 +116,29 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
           return (
             distance <= radius &&
             (marker.title.toLowerCase().includes(query.toLowerCase()) ||
-            marker.description.toLowerCase().includes(query.toLowerCase()))
+             marker.description.toLowerCase().includes(query.toLowerCase()))
           );
         })
         .map(marker => ({
           ...marker,
-          type: "marker"
+          type: "marker" as const
         }));
-
-      // Search Nominatim with bounded box
-      const boundingBox = calculateBoundingBox(
-        userLocation.latitude,
-        userLocation.longitude,
-        radius
-      );
-
-      const nominatimResponse = await fetch(
-        `https://nominatim.openstreetmap.org/search?` +
-        `format=json&` +
-        `q=${encodeURIComponent(query)}&` +
-        `viewbox=${boundingBox.join(",")}&` +
-        `bounded=1&` +
-        `limit=10`,
-        {
-          headers: {
-            'User-Agent': 'HobbyHub App/1.0'
-          }
-        }
-      );
+  
+      // Use the utility function for location search
+      const searchOptions: SearchOptions = {
+        radius,
+        limit: 10,
+        userLocation
+      };
       
-      const nominatimResults: NominatimResult[] = await nominatimResponse.json();
-      
-      const geocodedResults = nominatimResults
-        .map(result => ({
-          id: `location-${result.place_id}`,
-          type: "location",
-          title: result.display_name,
-          latitude: parseFloat(result.lat),
-          longitude: parseFloat(result.lon),
-          description: `${result.type.charAt(0).toUpperCase() + result.type.slice(1)}`,
-          importance: result.importance
-        }))
-        .sort((a, b) => b.importance - a.importance);
-
+      const locationResults = await performLocationSearch(query, searchOptions);
+  
       setSearchState(prev => ({
         ...prev,
-        results: [...matchingMarkers, ...geocodedResults]
+        results: [...matchingMarkers, ...locationResults]
       }));
       setShowResults(true);
-
+  
       if (onSearchMarkers) {
         onSearchMarkers(query);
       }
@@ -182,25 +150,13 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
     }
   };
 
-  // Add helper function for bounding box calculation
-  const calculateBoundingBox = (lat: number, lon: number, radius: number) => {
-    const R = 6371; // Earth's radius in km
-    const maxLat = lat + (radius / R) * (180 / Math.PI);
-    const minLat = lat - (radius / R) * (180 / Math.PI);
-    const maxLon = lon + (radius / R) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180);
-    const minLon = lon - (radius / R) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180);
-    return [minLon, minLat, maxLon, maxLat];
-  };
-
   // Handle selection of a search result
-  const handleSelectResult = (result: any) => {
-    // Clear search state first
+  const handleSelectResult = (result: LocationSearchResult) => {
     setShowResults(false);
     setSearchState(prev => ({ ...prev, results: [] }));
     Keyboard.dismiss();
   
-    if ((result.type === "location" || result.type === "marker") && onLocationSelect) {
-      // Calculate distance if user location is available
+    if (onLocationSelect) {
       let distanceText = '';
       if (userLocation) {
         const distance = calculateDistance(
@@ -212,17 +168,13 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
         distanceText = `${distance.toFixed(1)} km away`;
       }
   
-      // Update search query after clearing results
       setSearchQuery(result.title);
-  
-      // Call location select callback
       onLocationSelect({
         latitude: result.latitude,
         longitude: result.longitude,
         description: `${result.title}${distanceText ? ` (${distanceText})` : ''}`
       });
   
-      // Fly to selected location last
       if (onFlyTo) {
         onFlyTo({
           latitude: result.latitude,
@@ -233,23 +185,6 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
     }
   };
 
-  // Add distance calculation helper function
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  const deg2rad = (deg: number): number => {
-    return deg * (Math.PI/180);
-  };
-
   // Clear search
   const clearSearch = () => {
     setSearchQuery("");
@@ -258,7 +193,7 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
     Keyboard.dismiss();
   };
 
-  // Update the render section to use searchState
+  // Updated render section to use searchState
   return (
     <View 
       style={styles.bottomBarContainer}
@@ -274,7 +209,6 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
             value={searchQuery}
             onChangeText={handleInputChange}
             style={styles.searchInput}
-            // theme={{ colors: { text: "#FFFFFF", primary: "#3498DB", placeholder: "#BBBBBB" } }}
             textColor="#FFFFFF"
             accessibilityLabel="Search"
             accessibilityHint="Search for locations and events near you"
@@ -333,8 +267,7 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
             data={searchState.results}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => {
-              // Calculate distance if user location is available
+            renderItem={({ item }: { item: LocationSearchResult }) => {
               let distanceText = '';
               if (userLocation) {
                 const distance = calculateDistance(
@@ -410,7 +343,6 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
   );
 };
 
-// Add new styles
 const styles = StyleSheet.create({
   bottomBarContainer: {
     position: "absolute",
