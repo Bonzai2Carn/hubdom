@@ -241,7 +241,7 @@ const Register: React.FC<RegisterProps> = ({ navigation }) => {
               mode="outlined"
               left={<TextInput.Icon icon="account" color="#BBBBBB" />}
               error={!!nameError}
-              theme={{ colors: { primary: '#3498DB' } }}
+              textColor="#FFFFFF"
             />
             {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
           </View>
@@ -257,7 +257,7 @@ const Register: React.FC<RegisterProps> = ({ navigation }) => {
               mode="outlined"
               left={<TextInput.Icon icon="account-circle" color="#BBBBBB" />}
               error={!!usernameError}
-              theme={{ colors: { primary: '#3498DB' } }}
+              textColor="#FFFFFF"
             />
             {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
           </View>
@@ -275,7 +275,7 @@ const Register: React.FC<RegisterProps> = ({ navigation }) => {
               error={!!emailError}
               keyboardType="email-address"
               autoCapitalize="none"
-              theme={{ colors: { primary: '#3498DB' } }}
+              textColor="#FFFFFF"
             />
             {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
           </View>
@@ -299,7 +299,7 @@ const Register: React.FC<RegisterProps> = ({ navigation }) => {
                 />
               }
               error={!!passwordError}
-              theme={{ colors: { primary: '#3498DB' } }}
+              textColor="#FFFFFF"
             />
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           </View>
@@ -323,7 +323,7 @@ const Register: React.FC<RegisterProps> = ({ navigation }) => {
                 />
               }
               error={!!confirmPasswordError}
-              theme={{ colors: { primary: '#3498DB' } }}
+              textColor="#FFFFFF"
             />
             {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
           </View>

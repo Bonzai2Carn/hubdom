@@ -148,10 +148,10 @@ const LoginScreen: React.FC = () => {
               keyboardType="email-address"
               style={styles.input}
               left={<TextInput.Icon icon="email" color={theme.colors.placeholder} />}
-              theme={{ colors: { primary: theme.colors.primary } }}
+              textColor="#FFFFFF"
               outlineColor="rgba(255, 255, 255, 0.1)"
               selectionColor={theme.colors.primary}
-              textColor={theme.colors.text}
+              // textColor={theme.colors.text}
             />
 
             <TextInput
@@ -172,7 +172,7 @@ const LoginScreen: React.FC = () => {
               theme={{ colors: { primary: theme.colors.primary } }}
               outlineColor="rgba(255, 255, 255, 0.1)"
               selectionColor={theme.colors.primary}
-              textColor={theme.colors.text}
+              textColor="#FFFFFF"// textColor={theme.colors.text}
             />
 
             <TouchableOpacity

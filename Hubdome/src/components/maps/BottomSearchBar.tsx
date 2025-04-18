@@ -4,6 +4,7 @@ import { View, StyleSheet, TouchableOpacity, FlatList, Text, Keyboard } from 're
 import { TextInput } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LocationService } from "../../services/locationService";
+// import SearchBar from '../discover/SearchBar';
 
 interface BottomSearchBarProps {
   searchQuery: string;
@@ -22,6 +23,29 @@ interface BottomSearchBarProps {
     latitude: number;
     longitude: number;
   }>;
+  userLocation?: {
+    latitude: number;
+    longitude: number;
+  };
+  onFlyTo?: (location: { longitude: number; latitude: number; zoom?: number }) => void;
+  searchRadius?: number; // in kilometers, default will be 50
+}
+
+// Add this interface for Nominatim response - move it to map.ts later on
+interface NominatimResult {
+  place_id: string;
+  lat: string;
+  lon: string;
+  display_name: string;
+  type: string;
+  importance: number;
+}
+
+// Add new interface for search state
+interface SearchState {
+  query: string;
+  radius: number;
+  results: any[];
 }
 
 const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
@@ -30,121 +54,211 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
   onCreateContent,
   onLocationSelect,
   onSearchMarkers,
-  markers = []
+  markers = [],
+  userLocation,
+  onFlyTo,
+  searchRadius = 50 // default 50km radius
 }) => {
   const searchInputRef = useRef<any>(null);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchState, setSearchState] = useState<SearchState>({
+    query: searchQuery,
+    radius: searchRadius,
+    results: []
+  });
   const [showResults, setShowResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Separate handling of user input and search
+  const handleInputChange = (text: string) => {
+    setSearchQuery(text); // Update parent state
+    setSearchState(prev => ({ ...prev, query: text }));
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Set new timeout for search
+    if (text.length > 2) {
+      searchTimeoutRef.current = setTimeout(() => {
+        performSearch(text, searchState.radius);
+      }, 1000); // Increased delay to reduce API calls
+    } else {
+      setSearchState(prev => ({ ...prev, results: [] }));
+      setShowResults(false);
+    }
+  };
+
   // Debounce search
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (searchQuery.length > 2) {
-        performSearch(searchQuery);
+        performSearch(searchQuery, searchState.radius);
       } else {
-        setSearchResults([]);
+        setSearchState(prev => ({ ...prev, results: [] }));
         setShowResults(false);
       }
-    }, 300);
+    }, 500); // Increased delay to 500ms to be nice to Nominatim
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
-  // Perform search for both geocoded locations and markers
-  const performSearch = async (query: string) => {
+  // Updated search function with radius
+  const performSearch = async (query: string, radius: number) => {
+    if (!userLocation) return;
+    
     setIsSearching(true);
     try {
-      // Search for markers matching query in title or description
-      const matchingMarkers = markers.filter(marker => 
-        marker.title.toLowerCase().includes(query.toLowerCase()) || 
-        marker.description.toLowerCase().includes(query.toLowerCase())
+      // Search local markers first
+      const matchingMarkers = markers
+        .filter(marker => {
+          const distance = calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            marker.latitude,
+            marker.longitude
+          );
+          return (
+            distance <= radius &&
+            (marker.title.toLowerCase().includes(query.toLowerCase()) ||
+            marker.description.toLowerCase().includes(query.toLowerCase()))
+          );
+        })
+        .map(marker => ({
+          ...marker,
+          type: "marker"
+        }));
+
+      // Search Nominatim with bounded box
+      const boundingBox = calculateBoundingBox(
+        userLocation.latitude,
+        userLocation.longitude,
+        radius
+      );
+
+      const nominatimResponse = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+        `format=json&` +
+        `q=${encodeURIComponent(query)}&` +
+        `viewbox=${boundingBox.join(",")}&` +
+        `bounded=1&` +
+        `limit=10`,
+        {
+          headers: {
+            'User-Agent': 'HobbyHub App/1.0'
+          }
+        }
       );
       
-      // Search for locations using geocoding
-      const locationService = LocationService.getInstance();
-      const locationResult = await locationService.geocodeAddress(query);
+      const nominatimResults: NominatimResult[] = await nominatimResponse.json();
       
-      let geocodedResults: any[] = [];
-      if (locationResult.status === "success") {
-        // Get reverse geocode to get readable address
-        const addressInfo = await locationService.reverseGeocodeLocation(
-          locationResult.latitude,
-          locationResult.longitude
-        );
-        
-        const formattedAddress = addressInfo.status === "success" && addressInfo.address 
-          ? [
-              addressInfo.address.street,
-              addressInfo.address.city,
-              addressInfo.address.country
-            ].filter(Boolean).join(", ")
-          : query;
-        
-        geocodedResults = [{
-          id: "location-" + Date.now(),
+      const geocodedResults = nominatimResults
+        .map(result => ({
+          id: `location-${result.place_id}`,
           type: "location",
-          title: formattedAddress,
-          latitude: locationResult.latitude,
-          longitude: locationResult.longitude,
-          description: "Location"
-        }];
-      }
-      
-      // Combine marker and geocoded results
-      const formattedMarkers = matchingMarkers.map(marker => ({
-        ...marker,
-        type: "marker"
+          title: result.display_name,
+          latitude: parseFloat(result.lat),
+          longitude: parseFloat(result.lon),
+          description: `${result.type.charAt(0).toUpperCase() + result.type.slice(1)}`,
+          importance: result.importance
+        }))
+        .sort((a, b) => b.importance - a.importance);
+
+      setSearchState(prev => ({
+        ...prev,
+        results: [...matchingMarkers, ...geocodedResults]
       }));
-      
-      setSearchResults([...formattedMarkers, ...geocodedResults]);
       setShowResults(true);
-      
-      // Call the marker search callback
+
       if (onSearchMarkers) {
         onSearchMarkers(query);
       }
     } catch (error) {
       console.error("Search error:", error);
+      setSearchState(prev => ({ ...prev, results: [] }));
     } finally {
       setIsSearching(false);
     }
   };
 
+  // Add helper function for bounding box calculation
+  const calculateBoundingBox = (lat: number, lon: number, radius: number) => {
+    const R = 6371; // Earth's radius in km
+    const maxLat = lat + (radius / R) * (180 / Math.PI);
+    const minLat = lat - (radius / R) * (180 / Math.PI);
+    const maxLon = lon + (radius / R) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180);
+    const minLon = lon - (radius / R) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180);
+    return [minLon, minLat, maxLon, maxLat];
+  };
+
   // Handle selection of a search result
   const handleSelectResult = (result: any) => {
-    if (result.type === "location" && onLocationSelect) {
+    // Clear search state first
+    setShowResults(false);
+    setSearchState(prev => ({ ...prev, results: [] }));
+    Keyboard.dismiss();
+  
+    if ((result.type === "location" || result.type === "marker") && onLocationSelect) {
+      // Calculate distance if user location is available
+      let distanceText = '';
+      if (userLocation) {
+        const distance = calculateDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          result.latitude,
+          result.longitude
+        );
+        distanceText = `${distance.toFixed(1)} km away`;
+      }
+  
+      // Update search query after clearing results
+      setSearchQuery(result.title);
+  
+      // Call location select callback
       onLocationSelect({
         latitude: result.latitude,
         longitude: result.longitude,
-        description: result.title
+        description: `${result.title}${distanceText ? ` (${distanceText})` : ''}`
       });
-    } else if (result.type === "marker") {
-      // Navigate to the marker
-      // This would be implemented by zooming to the marker or selecting it
-      if (onLocationSelect) {
-        onLocationSelect({
+  
+      // Fly to selected location last
+      if (onFlyTo) {
+        onFlyTo({
           latitude: result.latitude,
           longitude: result.longitude,
-          description: result.title
+          zoom: 18
         });
       }
     }
-    
-    // Update search query and hide results
-    setSearchQuery(result.title);
-    setShowResults(false);
-    Keyboard.dismiss();
+  };
+
+  // Add distance calculation helper function
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const deg2rad = (deg: number): number => {
+    return deg * (Math.PI/180);
   };
 
   // Clear search
   const clearSearch = () => {
     setSearchQuery("");
-    setSearchResults([]);
+    setSearchState(prev => ({ ...prev, results: [] }));
     setShowResults(false);
     Keyboard.dismiss();
   };
 
+  // Update the render section to use searchState
   return (
     <View 
       style={styles.bottomBarContainer}
@@ -158,12 +272,13 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
             placeholder="Search for places or events..."
             placeholderTextColor="#BBBBBB"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleInputChange}
             style={styles.searchInput}
-            theme={{ colors: { text: "#FFFFFF", primary: "#3498DB" } }}
+            // theme={{ colors: { text: "#FFFFFF", primary: "#3498DB", placeholder: "#BBBBBB" } }}
+            textColor="#FFFFFF"
             accessibilityLabel="Search"
             accessibilityHint="Search for locations and events near you"
-            onSubmitEditing={() => performSearch(searchQuery)}
+            onSubmitEditing={() => performSearch(searchQuery, searchState.radius)}
             onFocus={() => {
               if (searchQuery.length > 2) {
                 setShowResults(true);
@@ -212,37 +327,68 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
       </View>
       
       {/* Search Results Dropdown */}
-      {showResults && searchResults.length > 0 && (
+      {showResults && searchState.results.length > 0 && (
         <View style={styles.searchResultsContainer}>
           <FlatList
-            data={searchResults}
+            data={searchState.results}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.searchResultItem}
-                onPress={() => handleSelectResult(item)}
-              >
-                <MaterialIcons 
-                  name={item.type === "location" ? "place" : "event-note"} 
-                  size={20} 
-                  color="#3498DB"
-                  style={styles.resultIcon}
-                />
-                <View style={styles.resultTextContainer}>
-                  <Text style={styles.resultTitle}>{item.title}</Text>
-                  <Text style={styles.resultDescription}>
-                    {item.type === "location" ? "Location" : item.description}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              // Calculate distance if user location is available
+              let distanceText = '';
+              if (userLocation) {
+                const distance = calculateDistance(
+                  userLocation.latitude,
+                  userLocation.longitude,
+                  item.latitude,
+                  item.longitude
+                );
+                distanceText = `${distance.toFixed(1)} km away`;
+              }
+
+              return (
+                <TouchableOpacity 
+                  style={styles.searchResultItem}
+                  onPress={() => handleSelectResult(item)}
+                >
+                  <MaterialIcons 
+                    name={item.type === "location" ? "place" : "event-note"} 
+                    size={20} 
+                    color="#3498DB"
+                    style={styles.resultIcon}
+                  />
+                  <View style={styles.resultTextContainer}>
+                    <Text style={styles.resultTitle}>{item.title}</Text>
+                    <Text style={styles.resultDescription}>
+                      {item.type === "location" ? "Location" : item.description}
+                      {distanceText ? ` • ${distanceText}` : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
           />
+          {searchState.results.length === 10 && (
+            <TouchableOpacity 
+              style={styles.expandRadiusButton}
+              onPress={() => {
+                setSearchState(prev => ({
+                  ...prev,
+                  radius: prev.radius + 50
+                }));
+                performSearch(searchState.query, searchState.radius + 50);
+              }}
+            >
+              <Text style={styles.expandRadiusText}>
+                Search in a larger area
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
       
       {/* No Results Message */}
-      {showResults && searchResults.length === 0 && !isSearching && searchQuery.length > 2 && (
+      {showResults && searchState.results.length === 0 && !isSearching && searchQuery.length > 2 && (
         <View style={styles.searchResultsContainer}>
           <View style={styles.noResultsContainer}>
             <MaterialIcons name="search-off" size={24} color="#BBBBBB" />
@@ -264,6 +410,7 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
   );
 };
 
+// Add new styles
 const styles = StyleSheet.create({
   bottomBarContainer: {
     position: "absolute",
@@ -281,6 +428,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     backgroundColor: "rgba(42, 42, 54, 0.8)",
+    color: "#FFFFFF",
     borderRadius: 25,
     flexDirection: "row",
     alignItems: "center",
@@ -369,7 +517,17 @@ const styles = StyleSheet.create({
   searchingText: {
     color: "#3498DB",
     marginTop: 8,
-  }
+  },
+  expandRadiusButton: {
+    padding: 12,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  expandRadiusText: {
+    color: '#3498DB',
+    fontSize: 14,
+  },
 });
 
 export default memo(BottomSearchBar);

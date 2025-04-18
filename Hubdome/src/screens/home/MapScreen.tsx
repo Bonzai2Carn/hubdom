@@ -317,7 +317,7 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const initialViewState = useMemo(() => ({
     longitude: location ? location.coords.longitude : -74.005974,
     latitude: location ? location.coords.latitude : 40.712776,
-    zoom: 17,
+    zoom: 16,
     pitch: 60,
     bearing: 15
   }), [location]);
@@ -403,6 +403,16 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         onLocationSelect={handleLocationSelect}
         onSearchMarkers={handleSearchMarkers}
         markers={markers}
+        userLocation={userLocationForMap}
+        onFlyTo={(location) => {
+          if (mapRef.current) {
+            mapRef.current.flyTo({
+              longitude: location.longitude,
+              latitude: location.latitude,
+              zoom: location.zoom || initialViewState.zoom
+            });
+          }
+        }}
       />
 
       {/* Bottom Navigation */}

@@ -398,8 +398,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 placeholderTextColor="#BBBBBB"
                 mode="outlined"
                 style={styles.input}
-                theme={{ colors: { primary: "#3498DB" } }}
-              />
+                textColor="#FFFFFF"              />
             </View>
 
             {/* Category Selector */}
@@ -423,8 +422,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 multiline={true}
                 numberOfLines={4}
                 style={styles.input}
-                theme={{ colors: { primary: "#3498DB" } }}
-              />
+                textColor="#FFFFFF"              />
             </View>
 
             {/* Day Selector */}
@@ -484,8 +482,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
                     placeholderTextColor="#BBBBBB"
                     mode="outlined"
                     style={styles.input}
-                    theme={{ colors: { text: "#FFFFFF", primary: "#3498DB" } }}
-                    onFocus={() => {
+                    textColor="#FFFFFF"                    onFocus={() => {
                       if (eventLocation.length > 2) {
                         setShowLocationSuggestions(true);
                       }

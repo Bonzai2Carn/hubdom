@@ -189,7 +189,8 @@ const Login: React.FC<LoginProps> = ({ navigation }) => {
               error={!!emailError}
               keyboardType="email-address"
               autoCapitalize="none"
-              theme={{ colors: { primary: '#3498DB' } }}
+              // theme={{ colors: { primary: '#3498DB' } }}
+              textColor="#FFFFFF"
             />
             {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
           </View>
@@ -213,7 +214,7 @@ const Login: React.FC<LoginProps> = ({ navigation }) => {
                 />
               }
               error={!!passwordError}
-              theme={{ colors: { primary: '#3498DB' } }}
+              textColor="#FFFFFF"
             />
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           </View>

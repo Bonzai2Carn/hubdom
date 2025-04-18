@@ -183,7 +183,7 @@ const RegisterScreen: React.FC = () => {
               theme={{ colors: { primary: theme.colors.primary } }}
               outlineColor="rgba(255, 255, 255, 0.1)"
               selectionColor={theme.colors.primary}
-              textColor={theme.colors.text}
+              textColor="#FFFFFF"// textColor={theme.colors.text}
               error={!!nameError}
             />
             {nameError ? <HelperText type="error" visible={!!nameError}>{nameError}</HelperText> : null}
@@ -200,7 +200,7 @@ const RegisterScreen: React.FC = () => {
               theme={{ colors: { primary: theme.colors.primary } }}
               outlineColor="rgba(255, 255, 255, 0.1)"
               selectionColor={theme.colors.primary}
-              textColor={theme.colors.text}
+              textColor="#FFFFFF"// textColor={theme.colors.text}
               error={!!emailError}
             />
             {emailError ? <HelperText type="error" visible={!!emailError}>{emailError}</HelperText> : null}
@@ -216,7 +216,7 @@ const RegisterScreen: React.FC = () => {
               theme={{ colors: { primary: theme.colors.primary } }}
               outlineColor="rgba(255, 255, 255, 0.1)"
               selectionColor={theme.colors.primary}
-              textColor={theme.colors.text}
+              textColor="#FFFFFF"// textColor={theme.colors.text}
               error={!!usernameError}
             />
             {usernameError ? <HelperText type="error" visible={!!usernameError}>{usernameError}</HelperText> : null}
@@ -239,7 +239,7 @@ const RegisterScreen: React.FC = () => {
               theme={{ colors: { primary: theme.colors.primary } }}
               outlineColor="rgba(255, 255, 255, 0.1)"
               selectionColor={theme.colors.primary}
-              textColor={theme.colors.text}
+              textColor="#FFFFFF"// textColor={theme.colors.text}
               error={!!passwordError}
             />
             {passwordError ? <HelperText type="error" visible={!!passwordError}>{passwordError}</HelperText> : null}
@@ -262,7 +262,7 @@ const RegisterScreen: React.FC = () => {
               theme={{ colors: { primary: theme.colors.primary } }}
               outlineColor="rgba(255, 255, 255, 0.1)"
               selectionColor={theme.colors.primary}
-              textColor={theme.colors.text}
+              textColor="#FFFFFF"// textColor={theme.colors.text}
               error={!!confirmPasswordError}
             />
             {confirmPasswordError ? <HelperText type="error" visible={!!confirmPasswordError}>{confirmPasswordError}</HelperText> : null}
