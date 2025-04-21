@@ -2,6 +2,7 @@ import React, { memo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { VideoCardProps } from "../../types/discover";
+import ContentItemCard from "./ContentItemCard";
 
 const VideoCard: React.FC<VideoCardProps> = ({ item, onPress, onFork }) => {
   return (
@@ -25,7 +26,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ item, onPress, onFork }) => {
         <Text style={styles.videoTitle} numberOfLines={2}>
           {item.title}
         </Text>
-        <Text style={styles.videoAuthor}>
+        {/* <Text style={styles.videoAuthor}>
           {item.author} • {item.date}
         </Text>
         <View style={styles.videoActions}>
@@ -54,7 +55,14 @@ const VideoCard: React.FC<VideoCardProps> = ({ item, onPress, onFork }) => {
               <MaterialIcons name="share" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </View>
+        </View> */}
+
+        <ContentItemCard
+                    item={item}
+                    onPress={onPress}
+                    toggleShareOptions={() => {}}
+                    toggleCollaborationOptions={() => {}}
+                  />
       </View>
     </TouchableOpacity>
   );
@@ -73,7 +81,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   videoThumbnail: {
-    height: 180,
+    height: 400,
     backgroundColor: "#1E1E2A",
     justifyContent: "center",
     alignItems: "center",

@@ -91,40 +91,14 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   }, []);
 
   // Long press to add marker
-  const handleMapLongPress = useCallback(async (e: any) => {
-    const coordinates = {
-      latitude: e.lngLat[1],  // Maplibre returns [longitude, latitude]
-      longitude: e.lngLat[0]
-    };
-  
-    try {
-      // Get address for the long pressed location
-      const locationService = LocationService.getInstance();
-      const addressInfo = await locationService.reverseGeocodeLocation(
-        coordinates.latitude,
-        coordinates.longitude
-      );
-  
-      const address = addressInfo.status === 'success' && addressInfo.address
-        ? [
-            addressInfo.address.street,
-            addressInfo.address.city,
-            addressInfo.address.state,
-            addressInfo.address.country
-          ].filter(Boolean).join(", ")
-        : undefined;
-  
-      // Store coordinates and open modal
-      setLongPressCoordinates({
-        ...coordinates,
-        address
-      });
-      setIsCreateModalOpen(true);
-    } catch (error) {
-      console.error("Error getting address for long press location:", error);
-      setLongPressCoordinates(coordinates);
-      setIsCreateModalOpen(true);
-    }
+  const handleMapLongPress = useCallback((coordinates: {
+    latitude: number;
+    longitude: number;
+  }) => {
+    // Store the coordinates
+    setLongPressCoordinates(coordinates);
+    // Open the create event modal
+    setIsCreateModalOpen(true);
   }, []);
   
   // Fetch markers from API
@@ -359,7 +333,7 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const initialViewState = useMemo(() => ({
     longitude: location ? location.coords.longitude : -74.005974,
     latitude: location ? location.coords.latitude : 40.712776,
-    zoom: 16,
+    zoom: 18,
     pitch: 60,
     bearing: 15
   }), [location]);

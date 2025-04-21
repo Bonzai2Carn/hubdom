@@ -13,7 +13,7 @@ import {
 interface BottomSearchBarProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  onCreateContent: (type: "photo" | "audio" | "thread") => void;
+  onCreateContent: (type: "thread") => void;
   onLocationSelect?: (location: {
     latitude: number;
     longitude: number;
@@ -231,7 +231,7 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
         </View>
         
         <View style={styles.createContentButtons}>
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.createContentButton}
             onPress={() => onCreateContent("photo")}
             accessibilityLabel="Take photo"
@@ -247,7 +247,7 @@ const BottomSearchBar: React.FC<BottomSearchBarProps> = ({
             accessibilityHint="Opens microphone to create an audio event"
           >
             <MaterialIcons name="mic" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           
           <TouchableOpacity
             style={styles.createContentButton}

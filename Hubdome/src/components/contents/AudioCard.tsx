@@ -2,6 +2,7 @@ import React, { memo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AudioCardProps } from "../../types/discover";
+import ContentItemCard from "./ContentItemCard";
 
 const AudioCard: React.FC<AudioCardProps> = ({ item, onPress, onFork }) => {
   return (
@@ -39,32 +40,13 @@ const AudioCard: React.FC<AudioCardProps> = ({ item, onPress, onFork }) => {
         </View>
 
         {/* Actions */}
-        <View style={styles.audioActions}>
-          <TouchableOpacity
-            style={styles.forkButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              onFork(item);
-            }}
-          >
-            <MaterialIcons name="call-split" size={16} color="#FFFFFF" />
-            <Text style={styles.forkButtonText}>Fork ({item.forks})</Text>
-          </TouchableOpacity>
-
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <MaterialIcons name="bookmark-border" size={20} color="#BBBBBB" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <MaterialIcons name="share" size={20} color="#BBBBBB" />
-            </TouchableOpacity>
-          </View>
+        <View style={styles.audioActionContent}>
+          <ContentItemCard
+            item={item}
+            onPress={onPress}
+            toggleShareOptions={() => {}}
+            toggleCollaborationOptions={() => {}}
+          />
         </View>
       </View>
     </TouchableOpacity>
@@ -91,6 +73,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#1E1E2A",
     justifyContent: "center",
     alignItems: "center",
+  },
+  audioActionContent: {
+    justifyContent: "space-between",
+    alignItems: "flex-start", 
   },
   audioContent: {
     flex: 1,
@@ -133,6 +119,7 @@ const styles = StyleSheet.create({
   audioDuration: {
     fontSize: 12,
     color: "#BBBBBB",
+    
   },
   audioActions: {
     flexDirection: "row",

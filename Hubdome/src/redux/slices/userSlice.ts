@@ -24,6 +24,7 @@ interface UserState {
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  location?: string;
 }
 
 // Initial state

@@ -273,10 +273,10 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
         <View style={[styles.markerContainer, isSelected && styles.selectedMarkerContainer]}>
           <MaterialIcons
             name={markerIconName as any}
-            size={isSelected ? 32 : 24}
+            size={isSelected ? 40 : 32}
             color={isSelected ? '#FF7F50' : '#3498DB'}
-            style={{ transform: [{ rotate: '-45deg' }] }}
-          />
+            style={{ transform: [{ rotate: '-45deg' }, { translateY: -10 }] }}
+            />
         </View>
       </Marker>
     );
@@ -486,6 +486,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    borderTopLeftRadius: 50,
     transform: [{ rotate: '45deg' }],
   },
   selectedMarkerContainer: {

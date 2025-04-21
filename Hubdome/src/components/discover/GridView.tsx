@@ -1,14 +1,28 @@
-import React, { memo, useMemo } from "react";
-import { View, Text, StyleSheet, FlatList, Dimensions } from "react-native";
+import React, { memo, useMemo, useState, useRef } from "react";
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity,
+  FlatList,
+  ListRenderItem,
+  Dimensions,
+  ActivityIndicator,
+  Animated,
+  NativeSyntheticEvent,
+  NativeScrollEvent
+} from 'react-native';
+
 import { MaterialIcons } from "@expo/vector-icons";
 import { GridViewProps, ContentItem } from "../../types/discover";
 
 // Import card components
-import VideoCard from "./VideoCard";
-import AudioCard from "./AudioCard";
-import ThreadCard from "./ThreadCard";
+import VideoCard from "../contents/VideoCard";
+import AudioCard from "../contents/AudioCard";
+import ThreadCard from "../contents/ThreadCard";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 
 const GridView: React.FC<GridViewProps> = ({
   content,
@@ -19,6 +33,7 @@ const GridView: React.FC<GridViewProps> = ({
   onItemPress,
   onFork,
 }) => {
+
   // Filter content based on category, type, and search
   const filteredContent = useMemo(() => {
     return content.filter((item) => {
@@ -55,6 +70,8 @@ const GridView: React.FC<GridViewProps> = ({
     return sorted;
   }, [filteredContent, activeTab]);
 
+
+  
   // Render different card types based on content type
   const renderContentItem = ({ item }: { item: ContentItem }) => {
     switch (item.type) {
@@ -68,6 +85,7 @@ const GridView: React.FC<GridViewProps> = ({
         return null;
     }
   };
+  
 
   // Empty state when no content matches filters
   const renderEmptyState = () => (
@@ -79,12 +97,17 @@ const GridView: React.FC<GridViewProps> = ({
       </Text>
     </View>
   );
-
+  
   return (
     <FlatList
       data={sortedContent}
       renderItem={renderContentItem}
       keyExtractor={(item) => item.id}
+      pagingEnabled
+      snapToAlignment="center"
+      snapToInterval={100} // Adjust for margin
+      // snapToInterval={CONTENT_CARD_WIDTH + CONTENT_CARD_MARGIN * 4} // Adjust for margin
+      decelerationRate={"fast"}
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={renderEmptyState}
@@ -95,7 +118,7 @@ const GridView: React.FC<GridViewProps> = ({
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    paddingBottom: 80, // Extra space for bottom bar
+    // paddingBottom: 80, // Extra space for bottom bar
     flexGrow: 1,
   },
   emptyContainer: {

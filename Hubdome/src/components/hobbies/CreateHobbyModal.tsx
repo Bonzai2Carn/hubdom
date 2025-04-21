@@ -38,7 +38,8 @@ const CATEGORIES = [
   "travel", 
   "mind", 
   "health", 
-  "money-making",
+  "business",
+  "other",
 ];
 
 const CreateHobbyModal: React.FC<CreateHobbyModalProps> = ({

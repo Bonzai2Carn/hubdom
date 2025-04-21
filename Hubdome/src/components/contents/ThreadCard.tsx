@@ -2,6 +2,7 @@ import React, { memo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ThreadCardProps } from "../../types/discover";
+import ContentItemCard from "./ContentItemCard";
 
 const ThreadCard: React.FC<ThreadCardProps> = ({ item, onPress, onFork }) => {
   return (
@@ -30,7 +31,7 @@ const ThreadCard: React.FC<ThreadCardProps> = ({ item, onPress, onFork }) => {
         </View>
       </View>
 
-      {/* Actions */}
+      {/* Actions
       <View style={styles.threadActions}>
         <TouchableOpacity
           style={styles.forkButton}
@@ -57,7 +58,14 @@ const ThreadCard: React.FC<ThreadCardProps> = ({ item, onPress, onFork }) => {
             <MaterialIcons name="share" size={20} color="#BBBBBB" />
           </TouchableOpacity>
         </View>
-      </View>
+      </View> */}
+      {/* Actions */}
+                <ContentItemCard
+                  item={item}
+                  onPress={onPress}
+                  toggleShareOptions={() => {}}
+                  toggleCollaborationOptions={() => {}}
+                />
     </TouchableOpacity>
   );
 };

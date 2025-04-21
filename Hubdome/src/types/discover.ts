@@ -54,6 +54,45 @@ export interface ForkBoardViewProps {
   onItemPress: (item: ContentItem) => void;
 }
 
+export interface ForkedContent {
+  id: string;
+  title: string;
+  thumbnail?: string;
+  author: string;
+  date: string;
+  type: string;
+  category?: string;
+  reactions: {
+    inspired: number;
+    curious: number;
+    excited: number;
+    [key: string]: number;
+  };
+  comments: Comment[];
+  forks: number;
+  collaborators: Collaborator[];
+  heritage: Heritage[];
+}
+
+export interface Comment {
+  id: string;
+  author: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface Collaborator {
+  id: string;
+  name: string;
+  role: string;
+}
+
+export interface Heritage {
+  id: string;
+  title: string;
+  date: string;
+}
+
 export interface ContentDetailModalProps {
   visible: boolean;
   item: ContentItem | null;
