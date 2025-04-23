@@ -32,6 +32,9 @@ export interface Event {
   eventType: string;
   attendees: number;
   isUserAttending: boolean;
+  media?: {
+      uri: string;
+  };
 }
 
 // Component props

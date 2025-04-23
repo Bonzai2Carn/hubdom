@@ -1,76 +1,30 @@
 // src/components/maps/MapViewComponent.tsx
 import React, { useRef, useState, useCallback, memo, forwardRef, useImperativeHandle, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Dimensions, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Animated } from 'react-native';
 import Map, { MapRef, Marker, NavigationControl } from '@vis.gl/react-maplibre';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { MapViewComponentProps, MapViewComponentHandle, MapViewState, MapMarker } from '../../types/map';
+import MapControls from './MapControls';
+import ClusteredMarkers from './ClusteredMarkers';
 
-// Types
-import { MapMarker, MapStyleType, MAP_STYLE_URLS } from "../../types/map";
+const { width, height } = Dimensions.get('window');
 
-interface MapViewComponentProps {
-  initialViewState: {
-    longitude: number;
-    latitude: number;
-    zoom: number;
-    pitch?: number;     // Add optional pitch
-    bearing?: number;   // Add optional bearing
-  };
-  onLongPress?: (coordinates: { latitude: number; longitude: number }) => void;
-  markers: MapMarker[];
-  userLocation?: {
-    longitude: number;
-    latitude: number;
-  };
-  mapStyle: string;
-  onMarkerPress: (marker: MapMarker) => void;
-  selectedMarker: MapMarker | null;
-  onStyleChange?: () => void;
-}
-
-// Define public methods that can be called via ref
-export interface MapViewComponentHandle {
-  flyTo: (options: { latitude: number; longitude: number; zoom?: number }) => void;
-  zoomIn: () => void;
-  zoomOut: () => void;
-  recenter: () => void;
-  rotateTo: (angle: number) => void;
-  // Add any other required methods
-}
-
-
-const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProps>((
-  {
-    initialViewState,
-    markers,
-    userLocation,
-    mapStyle,
-    onMarkerPress,
-    selectedMarker,
-    onStyleChange,
-    onLongPress
-  },
-  ref
-) => {
+const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProps>((props, ref) => {
   const mapRef = useRef<MapRef>(null);
-  const [viewState, setViewState] = useState({
-    pitch: initialViewState.pitch || 0,
-    bearing: initialViewState.bearing || 0,
+  const [viewState, setViewState] = useState<MapViewState>({
+    pitch: props.initialViewState.pitch || 0,
+    bearing: props.initialViewState.bearing || 0,
   });
-
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-
-  // Expose methods to parent component via ref
   useImperativeHandle(ref, () => ({
     flyTo: ({ longitude, latitude, zoom = 14 }) => {
       if (mapRef.current) {
-        const map = mapRef.current.getMap();
-        map.flyTo({
+        mapRef.current.getMap().flyTo({
           center: [longitude, latitude],
-          zoom: zoom,
+          zoom,
           speed: 1.5,
           curve: 1.5,
           essential: true
@@ -80,32 +34,28 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
     zoomIn: () => {
       if (mapRef.current) {
         const map = mapRef.current.getMap();
-        const currentZoom = map.getZoom();
-        map.zoomTo(currentZoom + 1, { duration: 300 });
+        map.zoomTo(map.getZoom() + 1, { duration: 300 });
       }
     },
     zoomOut: () => {
       if (mapRef.current) {
         const map = mapRef.current.getMap();
-        const currentZoom = map.getZoom();
-        map.zoomTo(Math.max(currentZoom - 1, 0), { duration: 300 });
+        map.zoomTo(Math.max(map.getZoom() - 1, 0), { duration: 300 });
       }
     },
     recenter: () => {
-      if (mapRef.current && userLocation) {
-        const map = mapRef.current.getMap();
-        map.flyTo({
-          center: [userLocation.longitude, userLocation.latitude],
+      if (mapRef.current && props.userLocation) {
+        mapRef.current.getMap().flyTo({
+          center: [props.userLocation.longitude, props.userLocation.latitude],
           speed: 1.5,
-          zoom: initialViewState.zoom,
+          zoom: props.initialViewState.zoom,
           essential: true
         });
       }
     },
     rotateTo: (angle: number) => {
       if (mapRef.current) {
-        const map = mapRef.current.getMap();
-        map.rotateTo(angle, { duration: 300 });
+        mapRef.current.getMap().rotateTo(angle, { duration: 300 });
       }
     }
   }));
@@ -133,15 +83,15 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
   }, []);
 
   const recenterMap = useCallback(() => {
-    if (mapRef.current && userLocation) {
+    if (mapRef.current && props.userLocation) {
       const map = mapRef.current.getMap();
       map.flyTo({
-        center: [userLocation.longitude, userLocation.latitude],
+        center: [props.userLocation.longitude, props.userLocation.latitude],
         speed: 1,
-        zoom: initialViewState.zoom,
+        zoom: props.initialViewState.zoom,
       });
     }
-  }, [userLocation, initialViewState.zoom]);
+  }, [props.userLocation, props.initialViewState.zoom]);
 
   // Fly to a specific location
   const flyToLocation = useCallback((longitude: number, latitude: number, zoom: number = 15) => {
@@ -177,10 +127,10 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
 
   // Handle style change
   const handleStyleChange = useCallback(() => {
-    if (onStyleChange) {
-      onStyleChange();
+    if (props.onStyleChange) {
+      props.onStyleChange();
     }
-  }, [onStyleChange]);
+  }, [props.onStyleChange]);
 
   // Add these rotation control functions
   const rotateLeft = useCallback(() => {
@@ -222,13 +172,13 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
       map.once('load', () => {
         // Set initial isometric view
         map.easeTo({
-          pitch: initialViewState.pitch || 60,
-          bearing: initialViewState.bearing || 15,
+          pitch: props.initialViewState.pitch || 60,
+          bearing: props.initialViewState.bearing || 15,
           duration: 1000
         });
       });
     }
-  }, [initialViewState.pitch, initialViewState.bearing]);
+  }, [props.initialViewState.pitch, props.initialViewState.bearing]);
 
   // add useEffect for collapsed items
   useEffect(() => {
@@ -245,54 +195,68 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
 
   // handle long press gesture
   const handleMapLongPress = useCallback((event: any) => {
-    if (onLongPress && event.lngLat) {
+    if (props.onLongPress && event.lngLat) {
       // Convert the coordinates to the format expected by our event creation
-      onLongPress({
+      props.onLongPress({
         latitude: event.lngLat[1],
         longitude: event.lngLat[0]
       });
     }
-  }, [onLongPress]);
+  }, [props.onLongPress]);
 
   // Render a map marker
   const renderMarker = useCallback((marker: MapMarker) => {
-    const isSelected = selectedMarker?.id === marker.id;
+    const isSelected = props.selectedMarker?.id === marker.id;
     let markerIconName: string = 'place';
     if (marker.subType === 'video') markerIconName = 'videocam';
     if (marker.subType === 'audio') markerIconName = 'music-note';
     if (marker.subType === 'thread') markerIconName = 'forum';
 
     return (
-      <Marker
-        key={marker.id}
-        longitude={marker.longitude}
-        latitude={marker.latitude}
-        anchor="center"
-        onClick={() => onMarkerPress(marker)}
-      >
-        <View style={[styles.markerContainer, isSelected && styles.selectedMarkerContainer]}>
-          <MaterialIcons
-            name={markerIconName as any}
-            size={isSelected ? 40 : 32}
-            color={isSelected ? '#FF7F50' : '#3498DB'}
-            style={{ transform: [{ rotate: '-45deg' }, { translateY: -10 }] }}
-            />
-        </View>
-      </Marker>
+      <ClusteredMarkers
+        markers={props.markers}
+        clusterDistance={50} // Adjust based on testing
+        onMarkerPress={props.onMarkerPress}
+        selectedMarker={props.selectedMarker}
+        renderMarker={(marker, isSelected) => (
+          <View style={[styles.markerContainer, isSelected && styles.selectedMarkerContainer]}>
+            {marker.imageUrl ? (
+              // Use uploaded image if available
+              <Image
+                source={{ uri: marker.imageUrl }}
+                style={[
+                  styles.markerImage,
+                  isSelected && styles.selectedMarkerImage,
+                  { transform: [{ rotate: '-45deg' }, { translateY: -20 }] }
+                ]}
+                resizeMode="cover"
+              />
+            ) : (
+              // Fallback to default icon based on type if no image
+              <MaterialIcons
+                name={markerIconName as any}
+                size={isSelected ? 80 : 80}
+                color={isSelected ? '#FF7F50' : '#3498DB'}
+                style={{ transform: [{ rotate: '-45deg' }, { translateY: -20 }] }}
+              />
+            )}
+          </View>
+        )}
+      />
     );
-  }, [selectedMarker, onMarkerPress]);
+  }, [props.markers, props.onMarkerPress, props.selectedMarker]);
 
   return (
     <View style={[styles.container, isCollapsed && styles.collapsedContainer]}>
       <Map
         ref={mapRef}
         initialViewState={{
-          ...initialViewState,
+          ...props.initialViewState,
           pitch: viewState.pitch,
           bearing: viewState.bearing,
         }}
         style={styles.mapContainer}
-        mapStyle={mapStyle}
+        mapStyle={props.mapStyle}
         mapLib={maplibregl}
         onDblClick={handleMapLongPress} // For the web version
         onClick={(e) => {
@@ -317,10 +281,10 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
         <NavigationControl style={styles.navigationControl} />
 
         {/* User location marker */}
-        {userLocation && (
+        {props.userLocation && (
           <Marker
-            longitude={userLocation.longitude} //will use an avatar for the user location
-            latitude={userLocation.latitude}
+            longitude={props.userLocation.longitude} //will use an avatar for the user location
+            latitude={props.userLocation.latitude}
             anchor="center"
           >
             <View style={[styles.userLocationMarker, { transform: [{ rotate: '45deg' }] }]} />
@@ -328,93 +292,18 @@ const MapViewComponent = forwardRef<MapViewComponentHandle, MapViewComponentProp
         )}
 
         {/* Event/content markers */}
-        {markers.map(renderMarker)}
+        {props.markers.map(renderMarker)}
       </Map>
-      
 
-      {/* Map Controls */}
-      
-      <View style={styles.mapControls}>
-        <TouchableOpacity
-        style={styles.mapControlButton && styles.collapsedContainer}
-        onPress={toggleCollapse}
-        accessibilityLabel={isCollapsed ? "Expand map" : "Collapse map"}
-      >
-        <MaterialIcons
-          name={isCollapsed ? "keyboard-arrow-down" : "keyboard-arrow-up"}
-          size={24}
-          color="#FFFFFF"
-        />
-      </TouchableOpacity>
-      {!isCollapsed && (
-        <TouchableOpacity
-          style={styles.mapControlButton}
-          onPress={zoomIn}
-          accessibilityLabel="Zoom in"
-          accessibilityHint="Zooms in on the map"
-        >
-          <MaterialIcons name="add" size={24} color="#FFFFFF" />
-        </TouchableOpacity>)}
-        {!isCollapsed && (
-          <TouchableOpacity
-          style={styles.mapControlButton}
-          onPress={zoomOut}
-          accessibilityLabel="Zoom out"
-          accessibilityHint="Zooms out on the map"
-        >
-          <MaterialIcons name="remove" size={24} color="#FFFFFF" />
-        </TouchableOpacity>)}
-        {!isCollapsed && (
-        <TouchableOpacity
-          style={styles.mapControlButton}
-          onPress={recenterMap}
-          accessibilityLabel="Recenter map"
-          accessibilityHint="Centers the map on your current location"
-          disabled={!userLocation}
-        >
-          <MaterialIcons name="my-location" size={24} color="#FFFFFF" />
-        </TouchableOpacity>)}
-        {!isCollapsed && (
-          <TouchableOpacity
-          style={styles.mapControlButton}
-          onPress={toggleIsometricView}
-          accessibilityLabel="Toggle isometric view"
-          accessibilityHint="Switches between flat and angled perspective"
-        >
-          <MaterialIcons
-            name={viewState.pitch > 0 ? "crop-rotate" : "3d-rotation"}
-            size={24}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity> )}
-        {!isCollapsed && (
-        <TouchableOpacity
-          style={styles.mapControlButton}
-          onPress={rotateLeft}
-          accessibilityLabel="Rotate left"
-          accessibilityHint="Rotates the map counter-clockwise"
-        >
-          <MaterialIcons name="rotate-right" size={24} color="#FFFFFF" />
-        </TouchableOpacity>)}
-        {!isCollapsed && (
-
-        <TouchableOpacity
-          style={styles.mapControlButton}
-          onPress={rotateRight}
-          accessibilityLabel="Rotate right"
-          accessibilityHint="Rotates the map clockwise"
-        >
-          <MaterialIcons name="rotate-left" size={24} color="#FFFFFF" />
-        </TouchableOpacity>)}
-        {!isCollapsed && (
-        <TouchableOpacity
-          style={styles.mapStyleButton}
-          onPress={handleStyleChange}
-          accessibilityLabel="Change map style"
-        >
-          <MaterialIcons name="layers" size={24} color="#FFFFFF" />
-        </TouchableOpacity>)}
-      </View>
+      <MapControls
+        mapRef={mapRef}
+        isCollapsed={isCollapsed}
+        toggleCollapse={toggleCollapse}
+        viewState={viewState}
+        setViewState={setViewState}
+        userLocation={props.userLocation}
+        onStyleChange={props.onStyleChange}
+      />
     </View>
   );
 });
@@ -440,46 +329,22 @@ const styles = StyleSheet.create({
 
   navigationControl: {
     position: 'absolute',
-    top: 10,
-    left: 40,
+    top: height * 0.10,
+    left: width * 0.40,
   },
-  mapControls: {
-    position: 'absolute',
-    right: 15,
-    top: 100,
-    backgroundColor: 'rgba(42, 42, 54, 0.8)',
-    borderTopStartRadius: 20,
-    borderTopEndRadius: 10,
-    borderBottomStartRadius: 10,
-    borderBottomEndRadius: 20,
-    padding: 8,
-    zIndex: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-    alignItems: 'center',
-  },
-  mapControlButton: {
-    width: 30,
-    height: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  mapStyleButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 4,
+  userLocationMarker: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#FF7F50',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'white',
   },
 
   // marker styles
   markerContainer: {
-    width: 48,
-    height: 48,
+    width: 50,
+    height: 50,
     borderRadius: 10,
     backgroundColor: 'rgba(42, 42, 54, 0.8)',
     justifyContent: 'center',
@@ -489,22 +354,28 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 50,
     transform: [{ rotate: '45deg' }],
   },
+  // Add these new styles to your existing styles object
+
+  markerImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10, // Match the corner radius of your marker container
+    overflow: 'hidden',
+  },
+  selectedMarkerImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 15, // Slightly larger radius for selected markers
+  },
   selectedMarkerContainer: {
-    width: 56,
-    height: 56,
+    width: 50,
+    height: 50,
+    // width: width * 0.056,
+    // height: height * 0.056,
     borderRadius: 28,
     borderWidth: 3,
     borderColor: '#FF7F50',
     backgroundColor: 'rgba(42, 42, 54, 0.9)',
-  },
-  userLocationMarker: {
-    width: 36,
-    height: 36,
-    backgroundColor: '#FF7F50',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: 'white',
-
   },
   rotationControls: {
     flexDirection: 'row',

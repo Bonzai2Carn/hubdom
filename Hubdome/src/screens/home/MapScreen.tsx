@@ -32,15 +32,31 @@ import BottomSearchBar from "../../components/maps/BottomSearchBar";
 
 // Hooks
 import { useLocation } from "../../hooks/useLocation";
+import { useMapMarkers } from "@/src/hooks/useMapMarkers";
 
 // Types & Constants
 import { MapMarker, MapStyleType, MAP_STYLE_URLS} from "../../types/map";
-import { MapViewComponentHandle } from "../../components/maps/MapViewComponent";
+import type { MapViewComponentRef } from "../../components/maps/MapViewComponent";
+import QuickAccessToolbar, { ToolbarItem } from '../../components/maps/QuickAccessToolbar';
+
 
 const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   // Refs
   const bannerFadeAnim = React.useRef(new Animated.Value(0)).current;
-  const mapRef = useRef<MapViewComponentHandle>(null);
+  const mapRef = useRef<MapViewComponentRef>(null);
+
+  // State
+  const [state, setState] = useState<MapScreenState>({
+    isCreateModalOpen: false,
+    isProfileOpen: false,
+    isNotificationOpen: false,
+    searchQuery: '',
+    isBannerVisible: true,
+    isScreenReaderEnabled: false,
+    mapStyle: 'standard',
+    isSearching: false,
+    longPressCoordinates: null
+  });
   
   // Get location data with custom hook
   const {
@@ -51,20 +67,35 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     requestLocation,
   } = useLocation();
 
+  const {
+    filteredMarkers,
+    selectedMarker,
+    isLoading: markersLoading,
+    error: markersError,
+    selectMarker,
+    addMarker,
+    refreshMarkers,
+    searchMarkers
+  } = useMapMarkers({ 
+    searchQuery: state.searchQuery,
+    userLocation: location?.coords
+  });
+
   // State
-  const [markers, setMarkers] = useState<MapMarker[]>([]);
-  const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
-  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [isBannerVisible, setIsBannerVisible] = useState<boolean>(true);
-  const [isScreenReaderEnabled, setIsScreenReaderEnabled] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<string>('map');
-  const [mapStyle, setMapStyle] = useState<MapStyleType>('standard');
-  const [filteredMarkers, setFilteredMarkers] = useState<MapMarker[]>([]);
-  const [isSearching, setIsSearching] = useState<boolean>(false);
+  // const [markers, setMarkers] = useState<MapMarker[]>([]);
+  // const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
+  // const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  // const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+  // const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
+  // const [searchQuery, setSearchQuery] = useState<string>('');
+  // const [isBannerVisible, setIsBannerVisible] = useState<boolean>(true);
+  // const [isScreenReaderEnabled, setIsScreenReaderEnabled] = useState<boolean>(false);
+  // const [activeTab, setActiveTab] = useState<string>('map');
+  // const [mapStyle, setMapStyle] = useState<MapStyleType>('standard');
+  // const [filteredMarkers, setFilteredMarkers] = useState<MapMarker[]>([]);
+  // const [isSearching, setIsSearching] = useState<boolean>(false);
   // state for long press gesture
+
   const [longPressCoordinates, setLongPressCoordinates] = useState<{
     latitude: number;
     longitude: number;
@@ -222,8 +253,9 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   // Handler: When a marker is pressed, set it as selected
   const handleMarkerPress = useCallback((marker: MapMarker) => {
-    setSelectedMarker(marker);
-  }, []);
+  selectMarker(marker);
+}, [selectMarker]);
+
 
   // Handler: When location from search is selected
   const handleLocationSelect = useCallback((locationData: {
@@ -281,22 +313,19 @@ const MapScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     if (location) {
       const newMarker: MapMarker = {
         id: Date.now().toString(),
-        latitude: eventData.location.coordinates[1], // GeoJSON format is [longitude, latitude]
+        latitude: eventData.location.coordinates[1],
         longitude: eventData.location.coordinates[0],
         title: eventData.title,
         description: eventData.description,
         type: 'event',
         subType: 'thread',
-        createdAt: eventData.startDate,
+        createdAt: eventData.startDate || new Date().toISOString(),
         createdBy: 'CurrentUser',
+        imageUrl: eventData.imageUrl || eventData.media?.uri || eventData.media?.thumbnail, // Add the image URL from the event data
       };
       
-      setMarkers((prevMarkers) => {
-        const updatedMarkers = [...prevMarkers, newMarker];
-        setFilteredMarkers(updatedMarkers);
-        return updatedMarkers;
-      });
-      
+      addMarker(newMarker);
+
       setIsCreateModalOpen(false);
       
       // Alert success

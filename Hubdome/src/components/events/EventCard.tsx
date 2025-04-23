@@ -12,11 +12,8 @@ interface EventCardProps {
   onPress: (eventId: string) => void;
 }
 
-const EventCard: React.FC<EventCardProps> = ({
-  item,
-  onToggleAttendance,
-  onPress,
-}) => {
+
+const EventCard = memo(({ item, onPress, onToggleAttendance }: EventCardProps) => {
   // Format date string
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -54,7 +51,12 @@ const EventCard: React.FC<EventCardProps> = ({
 
   return (
     <Card style={styles.eventCard}>
-      <Card.Cover source={{ uri: item.imageUrl }} style={styles.eventImage} />
+      {item.media?.uri && (
+        <Card.Cover
+          source={{ uri: item.media.uri }}
+          style={styles.eventImage}
+        />
+      )}
       <View
         style={[styles.eventTypeIndicator, { backgroundColor: eventTypeColor }]}
       />
@@ -136,7 +138,7 @@ const EventCard: React.FC<EventCardProps> = ({
       </Card.Actions>
     </Card>
   );
-};
+});
 
 const styles = StyleSheet.create({
   eventCard: {

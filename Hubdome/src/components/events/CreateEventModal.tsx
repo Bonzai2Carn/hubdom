@@ -62,6 +62,7 @@ interface EventData {
   media?: {
     type: 'image' | 'video';
     uri: string;
+    thumbnail?: string;
   };
 }
 
@@ -465,9 +466,21 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
   };
 
   // Handle form submission
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) return;
 
+    // Create thumbnail for video if needed
+    let mediaThumbnail;
+    if (mediaType === 'video' && mediaUri) {
+      try {
+        // For now, we'll skip thumbnail generation
+        // You would need to implement or import a proper video thumbnail generator
+        mediaThumbnail = null;
+      } catch (error) {
+        console.error('Error generating video thumbnail:', error);
+      }
+    }
+  
     const eventData: EventData = {
       title: eventName,
       description,

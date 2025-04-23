@@ -1,4 +1,6 @@
 // src/types/map.ts
+import { MapRef } from '@vis.gl/react-maplibre';
+
 
 /**
  * Map marker type representing events or content on the map
@@ -31,6 +33,48 @@ export interface MapMarker {
     
   };
   
+  export interface MapViewState {
+    pitch: number;
+    bearing: number;
+  }
+  
+  export interface MapViewComponentProps {
+    initialViewState: {
+      longitude: number;
+      latitude: number;
+      zoom: number;
+      pitch?: number;
+      bearing?: number;
+    };
+    onLongPress?: (coordinates: { latitude: number; longitude: number }) => void;
+    markers: MapMarker[];
+    userLocation?: {
+      longitude: number;
+      latitude: number;
+    };
+    mapStyle: string;
+    onMarkerPress: (marker: MapMarker) => void;
+    selectedMarker: MapMarker | null;
+    onStyleChange?: () => void;
+  }
+  
+  export interface MapViewComponentHandle {
+    flyTo: (options: { latitude: number; longitude: number; zoom?: number }) => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+    recenter: () => void;
+    rotateTo: (angle: number) => void;
+  }
+  
+  export interface MapControlsProps {
+    mapRef: React.RefObject<MapRef>;
+    isCollapsed: boolean;
+    toggleCollapse: () => void;
+    viewState: MapViewState;
+    setViewState: (state: MapViewState) => void;
+    userLocation?: { longitude: number; latitude: number };
+    onStyleChange?: () => void;
+  }
   /**
    * Location data structure
    */
@@ -39,4 +83,19 @@ export interface MapMarker {
     longitude: number;
     accuracy?: number;
     timestamp?: number;
+  }
+
+  export interface MapScreenState {
+    isCreateModalOpen: boolean;
+    isProfileOpen: boolean;
+    isNotificationOpen: boolean;
+    searchQuery: string;
+    isBannerVisible: boolean;
+    isScreenReaderEnabled: boolean;
+    mapStyle: MapStyleType;
+    isSearching: boolean;
+    longPressCoordinates: {
+      latitude: number;
+      longitude: number;
+    } | null;
   }
